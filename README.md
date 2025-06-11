@@ -7,13 +7,19 @@ Photo management system for Intania.
 ## Installation
 
 ```bash
-pnpm i
+bun i
 ```
 
-## Usage
+## Running the app
 
 ```bash
-pnpm dev --filter=web
+bun dev
+```
+
+To run any particular app in the monorepo, use:
+
+```bash
+bun dev --filter <app-name>
 ```
 
 ## Roadmap
