@@ -10,16 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: 20
-          cache: "pnpm"
+          bun-version: latest
 
       - name: Install modules
-        run: pnpm install
+        run: bun install
 
       # - name: Create .env.local file
       #   run: |
@@ -28,4 +25,4 @@ jobs:
       #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Run lint
-        run: pnpm lint
+        run: bun run lint
