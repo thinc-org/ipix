@@ -1,0 +1,4 @@
+{
+  "extends": "@ipix/typescript-config/base.json",
+  "include": ["src"]
+}
