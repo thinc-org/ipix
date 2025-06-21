@@ -1,8 +1,10 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
+import { userRoutes } from "./user/user.routes";
 
 const app = new Elysia()
   .use(cors())
+  .use(userRoutes)
   .get("/", () => "Hello Elysia")
   .get("/books", () => [
     { id: 1, title: "1984", author: "George Orwell" },
@@ -11,7 +13,7 @@ const app = new Elysia()
   .listen(4000);
 
 console.log(
-  `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`,
+  `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`
 );
 
 type App = typeof app;
