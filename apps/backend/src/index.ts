@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
-import { userRoutes } from "./user/user.routes";
+import { userRoutes } from "./user/user.route";
 
 const app = new Elysia()
   .use(cors())
