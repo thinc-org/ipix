@@ -1,8 +1,15 @@
 import Elysia, { t } from "elysia";
-import { createUser, signInUser } from "./user.service";
+import {
+  createUser,
+  fetchGoogleToken,
+  fetchUserData,
+  getGoogleEndpoint,
+  signInUser,
+} from "./user.service";
 import { createUserDTOSchema } from "./dto/create-user.dto";
 import { signInDTOSchema } from "./dto/sign-in.dto";
 import { jwtAdapter } from "../shared/jwt";
+import { MockUsers } from "./mock/user.mock";
 
 const userRoutes = new Elysia()
   .use(jwtAdapter)
@@ -116,6 +123,74 @@ const userRoutes = new Elysia()
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }
-  });
+  })
+  .get("/google", ({ redirect }) => {
+    // redirect to Google OAuth CLIENT ID 919252019629-apmdjn2n58l8pd4sm3k4hv5efq4qqk06.apps.googleusercontent.com
+
+    return redirect(getGoogleEndpoint());
+  })
+  .get(
+    "/callback",
+    async ({ query: { code }, status, authToken, cookie: { auth } }) => {
+      // Handle Google OAuth callback
+      // This is a placeholder, actual implementation will require fetching tokens and user info
+      if (!code) {
+        return status(400, {
+          message: "No authorization code provided",
+          error: "Invalid request",
+        });
+      }
+
+      const token = await fetchGoogleToken(code);
+
+      if (!token || !token.access_token) {
+        return status(400, {
+          message: "Failed to fetch Google access token",
+          error: "Invalid Google token response",
+        });
+      }
+
+      const googleUser = await fetchUserData(token.access_token);
+
+      console.log("Google User:", googleUser);
+
+      if (!googleUser || !googleUser.email) {
+        return status(400, {
+          message: "Failed to retrieve user information from Google",
+          error: "Invalid Google user data",
+        });
+      }
+
+      const mockUsers = MockUsers.getInstance();
+
+      const user = mockUsers
+        .getUsers()
+        .find((u) => u.email === googleUser.email);
+
+      if (!user) {
+        return status(404, {
+          message: "User not found",
+          error: "No user associated with this Google account",
+        });
+      }
+
+      const accessToken = await authToken.sign({
+        userId: user.id,
+        email: user.email,
+      });
+
+      auth?.set({
+        value: accessToken,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      });
+
+      return status(200, {
+        message: "User authenticated via Google",
+        user,
+        accessToken,
+      });
+    }
+  );
 
 export { userRoutes };
