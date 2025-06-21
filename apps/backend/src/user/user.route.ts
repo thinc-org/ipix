@@ -96,7 +96,7 @@ const userRoutes = new Elysia()
       });
     }
   })
-  .get("/logout", async ({ authToken, cookie: { auth }, status }) => {
+  .get("/logout", async ({ cookie: { auth }, status }) => {
     try {
       if (!auth?.value) {
         return status(400, {
