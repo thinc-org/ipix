@@ -1,4 +1,4 @@
-import { Static, t } from "elysia";
+import { t } from "elysia";
 
 export const createUserDTOSchema = t.Object({
   email: t.String({
@@ -14,4 +14,4 @@ export const createUserDTOSchema = t.Object({
   }),
 });
 
-export type CreateUserDTO = Static<typeof createUserDTOSchema>;
+export type CreateUserDTO = typeof createUserDTOSchema.static;

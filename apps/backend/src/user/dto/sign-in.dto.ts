@@ -1,4 +1,4 @@
-import { Static, t } from "elysia";
+import { t } from "elysia";
 
 export const signInDTOSchema = t.Object({
   email: t.String({
@@ -10,4 +10,4 @@ export const signInDTOSchema = t.Object({
   }),
 });
 
-export type SignInDTO = Static<typeof signInDTOSchema>;
+export type SignInDTO = typeof signInDTOSchema.static;
