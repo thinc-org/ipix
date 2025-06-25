@@ -1,3 +1,60 @@
+# iPix
+
+## Description
+
+Photo management system for Intania.
+
+## Installation
+
+```bash
+bun i
+```
+
+## Running the app
+
+```bash
+bun dev
+```
+
+To run any particular app in the monorepo, use:
+
+```bash
+bun dev --filter <app-name>
+```
+
+## Roadmap
+
+See GitHub Projects.
+
+## Contributing
+
+Issue template coming soon TM.
+
+## Authors and acknowledgment
+
+Project Manager
+
+- [Maersk1112](https://github.com/Maersk1112)
+
+Engineering Team
+
+- [Puifaii](https://github.com/Puifaii)
+- [neennera](https://github.com/neennera)
+- [wnmay](https://github.com/wnmay)
+- [betich](https://github.com/betich)
+
+## Status
+
+- [ ] Set-up Formatter (Prettier)
+- [ ] Set-up Linter (ESLint)
+- [ ] Set-up CI/CD
+- [ ] Set-up [Catalog](https://bun.sh/docs/install/catalogs)
+- [ ] Set-up `@repo/eslint-config`
+- [ ] Set-up `@repo/api`
+- [ ] Set-up `@repo/rdb`
+- [ ] Set-up `@repo/s3db`
+- [ ] Set-up `@repo/auth`
+
 # Turborepo starter
 
 This Turborepo starter is maintained by the Turborepo core team.
@@ -7,24 +64,34 @@ This Turborepo starter is maintained by the Turborepo core team.
 Run the following command:
 
 ```sh
-npx create-turbo@latest
+bunx create-turbo@latest
 ```
 
 ## What's inside?
 
 This Turborepo includes the following packages/apps:
 
-### Apps and Packages
+### Apps Packages, and Tools
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
+- `docs`: a ElysiaJS app
+- `web`: a TanStack Start app
+- `@repo/ui`: a stub React component library shared by `web` applications
 - `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo.
+- `@repo/api`: package for trpc configuration.
+- `@repo/rdb`: package for relational/sql database configuration.
+- `@repo/s3db`: package for s3 database configuration.
+- `@repo/auth`: package for auth configuration.
 
 Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
 
-### Utilities
+### Shared
+
+These are things that will be used in many areas:
+
+- `@repo/shared`: shared assets.
+
+### Utilities/Tools
 
 This Turborepo has some additional tools already setup for you:
 
@@ -133,3 +200,7 @@ Learn more about the power of Turborepo:
 - [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
 - [Configuration Options](https://turborepo.com/docs/reference/configuration)
 - [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+- [TanStack](https://tanstack.com)
+- [ElysiaJS](https://elysiajs.com/)
+- [tRPC](https://trpc.io/)
+- [Monorepo Example](https://github.com/nktnet1/rt-stack)
