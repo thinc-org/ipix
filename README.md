@@ -204,3 +204,5 @@ Learn more about the power of Turborepo:
 - [ElysiaJS](https://elysiajs.com/)
 - [tRPC](https://trpc.io/)
 - [Monorepo Example](https://github.com/nktnet1/rt-stack)
+- [Effectively using tRPC in a monorepo](https://github.com/trpc/trpc/discussions/1860#discussioncomment-4406931)
+- [package.json cheatsheet](https://areknawo.com/whats-what-package-json-cheatsheet/)

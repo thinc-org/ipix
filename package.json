@@ -1,5 +1,20 @@
 {
-  "name": "Turbo Repo POC",
+  "name": "ipix",
+  "devDependencies": {
+    "prettier": "^3.6.0",
+    "turbo": "^2.5.4",
+    "typescript": "5.8.2"
+  },
+  "contributors": [
+    {
+      "name": "",
+      "email": "b@rubble.com"
+    }
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "bun@1.2.17",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -10,17 +25,24 @@
     "start": "turbo run start",
     "clean": "turbo run clean"
   },
-  "devDependencies": {
-    "prettier": "^3.6.0",
-    "turbo": "^2.5.4",
-    "typescript": "5.8.2"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "packageManager": "bun@1.2.17",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*",
+      "tools/*"
+    ],
+    "catalog": {
+      "typescript": "^5.8.2",
+      "@trpc/client": "^11.4.2",
+      "@trpc/server": "^11.4.2",
+      "elysia": "^1.3.5",
+      "@elysiajs/node": "^1.3.0",
+      "@types/react": "^19.1.8",
+      "@types/react-dom": "^19.1.6",
+      "react": "^19.1.0",
+      "react-dom": "^19.1.0",
+      "bun-types": "latest"
+
+    }
+  }
 }

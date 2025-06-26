@@ -1,5 +1,5 @@
 {
-  "name": "server-prod",
+  "name": "ipix-frontend-prod",
   "version": "0.0.0",
   "type": "module",
   "private": true,
