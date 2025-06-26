@@ -20,7 +20,7 @@
     "packages": [
       "apps/*",
       "packages/*",
-      "tools/*"
+      "services/*"
     ],
     "catalog": {
       "typescript": "^5.8.2",
