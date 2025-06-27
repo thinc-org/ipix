@@ -8,6 +8,9 @@ Photo management system for Intania.
 
 ```bash
 bun i
+cd /apps/wen
+bun i
+npm i
 ```
 
 ## Running the app
