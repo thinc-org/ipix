@@ -1,6 +1,6 @@
 import type { Route } from "./+types/home";
 import { Welcome } from "../features/welcome";
-import { TestUi } from "~/features/welcome/testUi";
+import { TestUi } from "../features/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -12,8 +12,7 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   return (
     <>
-      <TestUi />
-      <Welcome />
+      <Welcome /> <TestUi />
     </>
   );
 }
