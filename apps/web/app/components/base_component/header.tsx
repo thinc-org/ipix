@@ -28,13 +28,13 @@ export function Header() {
             <img
               src="/base_resource/ipix_logo_white.svg"
               alt="ipix"
-              className="h-18 w-auto"
+              className="h-10 sm:h-18 w-auto"
             />
           ) : (
             <img
               src="/base_resource/ipix_logo_red.svg"
               alt="ipix"
-              className="h-18 w-auto"
+              className="h-10 sm:h-18 w-auto"
             />
           )}
         </div>
@@ -46,13 +46,13 @@ export function Header() {
             aria-label="Toggle theme"
           >
             {isDark ? (
-              <Sun className="h-5 w-5 text-yellow-500" />
+              <Sun className="h-5 sm:h-8 w-5 sm:w-8 text-yellow-500" />
             ) : (
-              <Moon className="h-5 w-5 text-gray-600" />
+              <Moon className="h-5 sm:h-8 w-5 sm:w-8 text-gray-600" />
             )}
           </button>
 
-          <UserCircle className="h-8 w-8 transition-colors cursor-pointer" />
+          <UserCircle className="h-5 sm:h-8 w-5 sm:w-8 transition-colors cursor-pointer" />
         </div>
       </div>
     </header>

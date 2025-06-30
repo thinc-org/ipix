@@ -26,7 +26,7 @@ export function Sidebar() {
       <Button
         variant="ghost"
         onClick={() => setOpen(!open)}
-        className="absolute top-4 -right-15 z-50"
+        className="absolute top-4 -right-12 border-2 z-50 md:hidden"
       >
         <Menu />
       </Button>
@@ -34,24 +34,24 @@ export function Sidebar() {
       <aside
         className={cn(
           "bg-white dark:bg-neutral-800 border-r shadow-sm transition-all  h-full overflow-y-auto",
-          open ? "w-[70vw] md:w-[20vw]" : "w-0"
+          open ? "w-[80vw] md:w-[20vw]" : "w-0"
         )}
       >
         {open && (
           <div className="p-4 flex flex-col justify-between h-full">
             <div>
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Avatar>
+                <div className="flex items-center gap-0.5 sm:gap-2">
+                  <Avatar className="max-sm:h-8 max-sm:w-8">
                     <AvatarImage src={user.profilePictureLink} />
                     <AvatarFallback>U</AvatarFallback>
                   </Avatar>
-                  <div>{user.email}</div>
+                  <div className="max-sm:text-sm">{user.email}</div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-gray-500 cursor-pointer"
+                  className="text-gray-500 cursor-pointer max-sm:text-xs text-end justify-end p-0"
                 >
                   Log Out
                 </Button>
