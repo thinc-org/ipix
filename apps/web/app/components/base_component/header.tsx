@@ -21,7 +21,7 @@ export function Header() {
   };
 
   return (
-    <header className="w-screen bg-white dark:bg-neutral-800 border-b h-[10vh] border-gray-200 dark:border-neutral-700">
+    <header className="fixed z-50 w-screen bg-white dark:bg-neutral-800 border-b h-[10vh] border-gray-200 dark:border-neutral-700">
       <div className="flex justify-between items-center px-6 py-4">
         <div className="flex items-center">
           {isDark ? (

@@ -5,6 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { cn } from "~/lib/utils";
 import { Menu } from "lucide-react";
 import { Link } from "react-router";
+import { Image, Users } from "lucide-react";
 
 const user = {
   profilePictureLink: "https://i.pravatar.cc/100",
@@ -21,11 +22,11 @@ export function Sidebar() {
   );
 
   return (
-    <div className="flex h-[90vh] text-lg">
+    <div className="fixed top-[10vh] h-[90vh] z-50 text-lg">
       <Button
         variant="ghost"
         onClick={() => setOpen(!open)}
-        className="absolute top-4 left-4 z-50 md:hidden"
+        className="absolute top-4 -right-15 z-50"
       >
         <Menu />
       </Button>
@@ -45,9 +46,13 @@ export function Sidebar() {
                     <AvatarImage src={user.profilePictureLink} />
                     <AvatarFallback>U</AvatarFallback>
                   </Avatar>
-                  <div className="text-sm font-medium">{user.email}</div>
+                  <div>{user.email}</div>
                 </div>
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 cursor-pointer"
+                >
                   Log Out
                 </Button>
               </div>
@@ -55,23 +60,23 @@ export function Sidebar() {
               <nav className="space-y-2">
                 <Link
                   to="/myipix"
-                  className="block px-4 py-2 rounded-md hover:bg-muted transition"
+                  className="flex flex-row space-x-5 items-center justify-start w-full px-4 py-2 rounded-md hover:bg-muted transition"
                 >
-                  📷 My IPix
+                  <Image /> <p>My IPix</p>
                 </Link>
                 <Link
                   to="/sharewithme"
-                  className="block px-4 py-2 rounded-md hover:bg-muted transition"
+                  className="flex flex-row space-x-5 items-center justify-start w-full px-4 py-2 rounded-md hover:bg-muted transition"
                 >
-                  👥 Shared With Me
+                  <Users /> <p>Shared With Me</p>
                 </Link>
               </nav>
             </div>
 
-            <div className="p-4 h-28 flex justify-between  flex-col border rounded-md">
-              <p className="text-sm font-semibold mb-1">Storage Space</p>
+            <div className="p-4 h-32 flex justify-between  flex-col border rounded-md">
+              <p className="text-xl font-semibold mb-1">Storage Space</p>
               <Progress value={percentage} />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {user.storageSpaceUsed} GB of {user.storageSpaceAll} TB used (
                 {percentage}%)
               </p>
