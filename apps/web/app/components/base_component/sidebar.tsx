@@ -21,7 +21,7 @@ export function Sidebar() {
   );
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-[90vh] text-lg">
       <Button
         variant="ghost"
         onClick={() => setOpen(!open)}
@@ -32,7 +32,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "bg-white border-r shadow-sm transition-all duration-300 ease-in-out h-full overflow-y-auto",
+          "bg-white dark:bg-neutral-800 border-r shadow-sm transition-all  h-full overflow-y-auto",
           open ? "w-[70vw] md:w-[20vw]" : "w-0"
         )}
       >
@@ -68,7 +68,7 @@ export function Sidebar() {
               </nav>
             </div>
 
-            <div className="p-4 border rounded-md">
+            <div className="p-4 h-28 flex justify-between  flex-col border rounded-md">
               <p className="text-sm font-semibold mb-1">Storage Space</p>
               <Progress value={percentage} />
               <p className="text-xs text-muted-foreground mt-1">
