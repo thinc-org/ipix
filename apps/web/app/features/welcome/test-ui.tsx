@@ -30,6 +30,7 @@ import {
 } from "~/components/ui/select";
 import { AlertCircle, Info, CheckCircle, Heart } from "lucide-react";
 import { Header } from "~/components/base_component/header";
+import { Sidebar } from "~/components/base_component/sidebar";
 
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
@@ -40,6 +41,7 @@ export function TestUi() {
     <div className="min-h-screen bg-background">
       {/* Header Component */}
       <Header />
+      <Sidebar />
 
       <div className="container mx-auto p-8 space-y-8">
         <div className="text-center mb-8">
