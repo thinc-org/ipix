@@ -31,6 +31,7 @@ import {
 import { AlertCircle, Info, CheckCircle, Heart } from "lucide-react";
 import { Header } from "~/components/base_component/header";
 import { Folder } from "~/components/base_component/folder";
+import { DisplayFile } from "~/components/base_component/display-file";
 
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
@@ -42,6 +43,11 @@ export function TestUi() {
       {/* Header Component */}
       <Header />
       <Folder folderName="name" imageCount={1} />
+      <DisplayFile
+        imageName="name"
+        imageSrc="/base_resource/folder.svg"
+        uploadDate={new Date()}
+      />
 
       <div className="container mx-auto p-8 space-y-8">
         <div className="text-center mb-8">
