@@ -77,7 +77,7 @@ export function Sidebar() {
               <p className="text-xl font-semibold mb-1">Storage Space</p>
               <Progress value={percentage} />
               <p className="text-sm text-muted-foreground mt-1">
-                {user.storageSpaceUsed} GB of {user.storageSpaceAll} TB used (
+                {user.storageSpaceUsed} GB of {user.storageSpaceAll} GB used (
                 {percentage}%)
               </p>
             </div>
