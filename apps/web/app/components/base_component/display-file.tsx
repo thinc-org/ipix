@@ -19,9 +19,9 @@ export function DisplayFile({
   })}`;
   return (
     <div className="w-[184px] flex flex-col items-center p-2">
-      <img src={imageSrc}></img>
-      <a className="text-center text-xs">{imageName}</a>
-      <a className="text-black/50 text-xs">{formattedDate}</a>
+      <img src={imageSrc} alt={imageName} />
+      <span className="text-center text-xs">{imageName}</span>
+      <span className="text-black/50 text-xs">{formattedDate}</span>
     </div>
   );
 }

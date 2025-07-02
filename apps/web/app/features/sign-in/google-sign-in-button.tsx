@@ -17,7 +17,7 @@ export function GoogleSignInButton() {
       {isLoading ? (
         <Button
           variant={"secondary"}
-          className="text-2xl font-normal text-black/50 py-7 border-1"
+          className="text-2xl font-normal text-black/50 py-7 border"
           disabled
         >
           <Loader2Icon
@@ -30,7 +30,7 @@ export function GoogleSignInButton() {
         <Button
           onClick={buttonOnClick}
           variant="outline"
-          className="py-7 text-2xl font-normal text-black/50 gap-3 hover:text-black/50"
+          className="py-7 text-2xl font-normal text-black/50 gap-3"
         >
           <img src="/base_resource/google_logo.svg" />
           Sign in With Google
