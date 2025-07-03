@@ -1,0 +1,26 @@
+{
+  "name": "@repo/rdb",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./schema": {
+      "types": "./dist/src/schema.d.ts",
+      "default": "./src/schema.ts"
+    }
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.2",
+    "drizzle-typebox": "catalog:",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.4",
+    "bun-types": "catalog:",
+    "drizzle-kit": "^0.31.4",
+    "tsx": "catalog:"
+  }
+}
