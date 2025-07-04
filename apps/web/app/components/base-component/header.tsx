@@ -21,20 +21,20 @@ export function Header() {
   };
 
   return (
-    <header className="w-screen bg-white dark:bg-neutral-800 border-b border-gray-200 dark:border-neutral-700">
+    <header className="fixed z-50 w-screen bg-white dark:bg-neutral-800 border-b h-[10vh] border-gray-200 dark:border-neutral-700">
       <div className="flex justify-between items-center px-6 py-4">
         <div className="flex items-center">
           {isDark ? (
             <img
               src="/base_resource/ipix_logo_white.svg"
               alt="ipix"
-              className="h-18 w-auto"
+              className="h-10 sm:h-18 w-auto"
             />
           ) : (
             <img
               src="/base_resource/ipix_logo_red.svg"
               alt="ipix"
-              className="h-18 w-auto"
+              className="h-10 sm:h-18 w-auto"
             />
           )}
         </div>
@@ -46,13 +46,13 @@ export function Header() {
             aria-label="Toggle theme"
           >
             {isDark ? (
-              <Sun className="h-5 w-5 text-yellow-500" />
+              <Sun className="h-5 sm:h-8 w-5 sm:w-8 text-yellow-500" />
             ) : (
-              <Moon className="h-5 w-5 text-gray-600" />
+              <Moon className="h-5 sm:h-8 w-5 sm:w-8 text-gray-600" />
             )}
           </button>
 
-          <UserCircle className="h-8 w-8 transition-colors cursor-pointer" />
+          <UserCircle className="h-5 sm:h-8 w-5 sm:w-8 transition-colors cursor-pointer" />
         </div>
       </div>
     </header>
