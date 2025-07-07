@@ -30,13 +30,14 @@ import {
 } from "~/components/ui/select";
 import { AlertCircle, Info, CheckCircle, Heart } from "lucide-react";
 import { Header } from "~/components/base-component/header";
-import { Folder } from "~/components/image-folder";
-import { DisplayFile } from "~/components/image-folder";
+import {
+  Folder,
+  DisplayFile,
+  CreateFolderButton,
+  RenameFolderButton,
+  DeleteFolderButton,
+} from "~/components/image-folder";
 import { Sidebar } from "~/components/base-component/sidebar";
-import { CreateFolderButton } from "~/components/image-folder";
-import { RenameFolderButton } from "~/components/image-folder";
-import { DeleteFolderButton } from "~/components/image-folder";
-
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
   const [textareaValue, setTextareaValue] = useState("");
@@ -46,7 +47,7 @@ export function TestUi() {
     <div className="min-h-screen bg-background relative">
       {/* Header Component */}
       <Header />
-      {/* <Sidebar /> */}
+      <Sidebar />
 
       <div className="container absolute mx-auto p-8 space-y-8 w-full top-[10vh] right-0 ">
         <div className="text-center mb-8">

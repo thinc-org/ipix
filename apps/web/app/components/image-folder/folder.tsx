@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { RenameFolderButton } from "./rename-folder-button";
-import { DeleteFolderButton } from "../image-folder/delete-folder-button";
+import { DeleteFolderButton } from "./";
 import { Link } from "react-router";
 
 export function Folder({
@@ -47,7 +47,7 @@ export function Folder({
       onContextMenu={handleContextMenu}
     >
       <Link to={folderId} className="flex flex-col items-center p-2">
-        <img src="/image_folder_resource/folder.svg" alt="Folder icon" />
+        <img src="/image_folder_resource/folder.svg" aria-hidden="true" />
         <span className="text-center text-xs">{folderName}</span>
         <span className="text-black/50 text-xs">
           Folder · {imageCount} Item(s)
