@@ -9,8 +9,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
+import { buttonVariants } from "../ui/button";
+import type { VariantProps } from "class-variance-authority";
 
-export function DeleteFolderButton({ className }: { className?: string }) {
+type ButtonVariant = VariantProps<typeof buttonVariants>["variant"];
+
+export function DeleteFolderButton({ variant }: { variant?: ButtonVariant }) {
   const [open, setOpen] = useState(false);
   const deleteFolder = () => {
     //delete folder
@@ -20,11 +24,7 @@ export function DeleteFolderButton({ className }: { className?: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {className ? (
-          <button className={className}>Delete</button>
-        ) : (
-          <Button variant="destructive">Delete</Button>
-        )}
+        <Button variant={variant}>Delete</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -34,11 +34,11 @@ export function DeleteFolderButton({ className }: { className?: string }) {
             undone.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex justify-end space-x-2 mt-4 gap-4">
+        <div className="flex justify-end space-x-2 mt-4">
           <DialogClose asChild>
-            <button className="bg-transparent text-black/50 text-sm">
+            <Button variant="ghost" className="text-black/50 text-sm">
               Cancel
-            </button>
+            </Button>
           </DialogClose>
           <Button variant="destructive" onClick={deleteFolder}>
             Delete

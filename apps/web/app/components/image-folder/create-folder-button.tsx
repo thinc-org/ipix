@@ -8,8 +8,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
+import { buttonVariants } from "../ui/button";
+import type { VariantProps } from "class-variance-authority";
 
-export function CreateFolderButton() {
+type ButtonVariant = VariantProps<typeof buttonVariants>["variant"];
+
+export function CreateFolderButton({ variant }: { variant?: ButtonVariant }) {
   const inputFolderName = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const createFolder = () => {
@@ -23,7 +27,7 @@ export function CreateFolderButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>+ New</Button>
+        <Button variant={variant}>+ New</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -34,18 +38,19 @@ export function CreateFolderButton() {
             className="gap-10 p-2 rounded-md border-[0.5px] border-black mt-8"
           />
         </DialogHeader>
-        <div className="flex justify-end space-x-2 mt-4 gap-4">
+        <div className="flex justify-end space-x-2 mt-4">
           <DialogClose asChild>
-            <button className="bg-transparent text-black/50 text-sm">
+            <Button variant="ghost" className="text-black/50 text-sm">
               Cancel
-            </button>
+            </Button>
           </DialogClose>
-          <button
-            className="bg-transparent text-blue-500 text-sm"
+          <Button
+            variant="ghost"
+            className="text-blue-500 text-sm"
             onClick={createFolder}
           >
             Create
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

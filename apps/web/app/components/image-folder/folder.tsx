@@ -56,27 +56,27 @@ export function Folder({
 
       {menuVisible && (
         <div
-          className="absolute z-50 bg-white border rounded-xl text-xs"
+          className="absolute z-50 bg-white border rounded-xl"
           style={menuStyle}
           onClick={(e) => e.stopPropagation()} // prevent bubbling
         >
           <div className="flex flex-col">
-            <div className="flex items-center gap-2 px-4 py-3 hover:bg-gray-100 rounded-t-xl">
+            <div className="flex items-center px-2 py-1 hover:bg-gray-100 rounded-t-xl">
               <img
                 src="/image_folder_resource/edit_icon.svg"
                 alt="Rename"
                 className="w-5 h-5"
               />
-              <RenameFolderButton className="bg-transparent border-none px-0 py-0 font-medium text-left" />
+              <RenameFolderButton variant="menu" />
             </div>
             <div className="border-t" />
-            <div className="flex items-center gap-2 px-4 py-3 hover:bg-gray-100 rounded-b-xl">
+            <div className="flex items-center px-2 py-1 hover:bg-gray-100 rounded-b-xl">
               <img
                 src="/image_folder_resource/trash_icon.svg"
                 alt="Delete"
                 className="w-5 h-5"
               />
-              <DeleteFolderButton className="bg-transparent border-none px-0 py-0 font-medium text-left" />
+              <DeleteFolderButton variant="menu" />
             </div>
           </div>
         </div>

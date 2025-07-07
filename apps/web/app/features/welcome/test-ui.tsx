@@ -67,7 +67,7 @@ export function TestUi() {
         />
         <CreateFolderButton />
         <RenameFolderButton />
-        <DeleteFolderButton />
+        <DeleteFolderButton variant="destructive" />
 
         {/* Button Variants Section */}
         <Card>
