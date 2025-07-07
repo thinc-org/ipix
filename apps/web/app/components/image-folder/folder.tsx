@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { RenameFolderButton } from "./rename-folder-button";
 import { DeleteFolderButton } from "./";
 import { Link } from "react-router";
+import { useOnClickOutside } from "usehooks-ts";
 
 export function Folder({
   folderName,
@@ -15,19 +16,9 @@ export function Folder({
   const [menuVisible, setMenuVisible] = useState(false);
   const folderRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (folderRef.current && !folderRef.current.contains(e.target as Node)) {
-        setMenuVisible(false);
-      }
-    };
-    if (menuVisible) {
-      document.addEventListener("mousedown", handleClick);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-    };
-  }, [menuVisible]);
+  useOnClickOutside(folderRef as React.RefObject<HTMLElement>, () => {
+    setMenuVisible(false);
+  });
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -58,7 +49,7 @@ export function Folder({
         <div
           className="absolute z-50 bg-white border rounded-xl"
           style={menuStyle}
-          onClick={(e) => e.stopPropagation()} // prevent bubbling
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col">
             <div className="flex items-center px-2 py-1 hover:bg-gray-100 rounded-t-xl">
