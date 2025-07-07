@@ -1,0 +1,28 @@
+name: Lint
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install modules
+        run: bun install
+
+      # - name: Create .env.local file
+      #   run: |
+      #     echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > apps/web/.env.local
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Run lint
+        run: bun run lint
