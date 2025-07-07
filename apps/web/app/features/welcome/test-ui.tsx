@@ -30,12 +30,12 @@ import {
 } from "~/components/ui/select";
 import { AlertCircle, Info, CheckCircle, Heart } from "lucide-react";
 import { Header } from "~/components/base-component/header";
-import { Folder } from "~/components/base-component/folder";
-import { DisplayFile } from "~/components/base-component/display-file";
+import { Folder } from "~/components/image-folder";
+import { DisplayFile } from "~/components/image-folder";
 import { Sidebar } from "~/components/base-component/sidebar";
-import { CreateFolderButton } from "~/components/base-component";
-import { RenameFolderButton } from "~/components/base-component/rename-folder-button";
-import { DeleteFolderButton } from "~/components/base-component/delete-folder-button";
+import { CreateFolderButton } from "~/components/image-folder";
+import { RenameFolderButton } from "~/components/image-folder";
+import { DeleteFolderButton } from "~/components/image-folder";
 
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
@@ -61,7 +61,7 @@ export function TestUi() {
         <Folder folderName="name" imageCount={1} folderId="1" />
         <DisplayFile
           imageName="name"
-          imageSrc="/base_resource/folder.svg"
+          imageSrc="/image_folder_resource/folder.svg"
           uploadDate={new Date()}
         />
         <CreateFolderButton />

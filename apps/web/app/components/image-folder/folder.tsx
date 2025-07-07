@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { RenameFolderButton } from "./rename-folder-button";
-import { DeleteFolderButton } from "./delete-folder-button";
+import { DeleteFolderButton } from "../image-folder/delete-folder-button";
 import { Link } from "react-router";
 
 export function Folder({
@@ -47,7 +47,7 @@ export function Folder({
       onContextMenu={handleContextMenu}
     >
       <Link to={folderId} className="flex flex-col items-center p-2">
-        <img src="/base_resource/folder.svg" alt="Folder icon" />
+        <img src="/image_folder_resource/folder.svg" alt="Folder icon" />
         <span className="text-center text-xs">{folderName}</span>
         <span className="text-black/50 text-xs">
           Folder · {imageCount} Item(s)
@@ -63,7 +63,7 @@ export function Folder({
           <div className="flex flex-col">
             <div className="flex items-center gap-2 px-4 py-3 hover:bg-gray-100 rounded-t-xl">
               <img
-                src="/base_resource/edit_icon.svg"
+                src="/image_folder_resource/edit_icon.svg"
                 alt="Rename"
                 className="w-5 h-5"
               />
@@ -72,7 +72,7 @@ export function Folder({
             <div className="border-t" />
             <div className="flex items-center gap-2 px-4 py-3 hover:bg-gray-100 rounded-b-xl">
               <img
-                src="/base_resource/trash_icon.svg"
+                src="/image_folder_resource/trash_icon.svg"
                 alt="Delete"
                 className="w-5 h-5"
               />
