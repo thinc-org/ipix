@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { RenameFolderButton } from "./rename-folder-button";
 import { DeleteFolderButton } from "./delete-folder-button";
+import { Link } from "react-router";
 
 export function Folder({
   folderName,
   imageCount,
+  folderId,
 }: {
   folderName: string;
   imageCount: number;
+  folderId: string;
 }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const folderRef = useRef<HTMLDivElement>(null);
@@ -40,18 +43,22 @@ export function Folder({
   return (
     <div
       ref={folderRef}
-      className="w-[184px] flex flex-col items-center p-2 relative"
+      className="w-[184px] relative"
       onContextMenu={handleContextMenu}
     >
-      <img src="/base_resource/folder.svg" alt="Folder icon" />
-      <span className="text-center text-xs">{folderName}</span>
-      <span className="text-black/50 text-xs">
-        Folder · {imageCount} Item(s)
-      </span>
+      <Link to={folderId} className="flex flex-col items-center p-2">
+        <img src="/base_resource/folder.svg" alt="Folder icon" />
+        <span className="text-center text-xs">{folderName}</span>
+        <span className="text-black/50 text-xs">
+          Folder · {imageCount} Item(s)
+        </span>
+      </Link>
+
       {menuVisible && (
         <div
           className="absolute z-50 bg-white border rounded-xl text-xs"
           style={menuStyle}
+          onClick={(e) => e.stopPropagation()} // prevent bubbling
         >
           <div className="flex flex-col">
             <div className="flex items-center gap-2 px-4 py-3 hover:bg-gray-100 rounded-t-xl">

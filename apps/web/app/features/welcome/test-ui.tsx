@@ -58,7 +58,7 @@ export function TestUi() {
             variants including our custom Header component
           </p>
         </div>
-        <Folder folderName="name" imageCount={1} />
+        <Folder folderName="name" imageCount={1} folderId="1" />
         <DisplayFile
           imageName="name"
           imageSrc="/base_resource/folder.svg"
