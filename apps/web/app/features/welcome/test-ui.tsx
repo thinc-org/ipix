@@ -30,10 +30,14 @@ import {
 } from "~/components/ui/select";
 import { AlertCircle, Info, CheckCircle, Heart } from "lucide-react";
 import { Header } from "~/components/base-component/header";
-import { Folder } from "~/components/base-component/folder";
-import { DisplayFile } from "~/components/base-component/display-file";
+import {
+  Folder,
+  DisplayFile,
+  CreateFolderButton,
+  RenameFolderButton,
+  DeleteFolderButton,
+} from "~/components/image-folder";
 import { Sidebar } from "~/components/base-component/sidebar";
-
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
   const [textareaValue, setTextareaValue] = useState("");
@@ -43,12 +47,6 @@ export function TestUi() {
     <div className="min-h-screen bg-background relative">
       {/* Header Component */}
       <Header />
-      <Folder folderName="name" imageCount={1} />
-      <DisplayFile
-        imageName="name"
-        imageSrc="/base_resource/folder.svg"
-        uploadDate={new Date()}
-      />
       <Sidebar />
 
       <div className="container absolute mx-auto p-8 space-y-8 w-full top-[10vh] right-0 ">
@@ -61,6 +59,15 @@ export function TestUi() {
             variants including our custom Header component
           </p>
         </div>
+        <Folder folderName="name" imageCount={1} folderId="1" />
+        <DisplayFile
+          imageName="name"
+          imageSrc="/image_folder_resource/folder.svg"
+          uploadDate={new Date()}
+        />
+        <CreateFolderButton />
+        <RenameFolderButton />
+        <DeleteFolderButton variant="destructive" />
 
         {/* Button Variants Section */}
         <Card>
