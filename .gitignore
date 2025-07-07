@@ -14,10 +14,6 @@ node_modules
 
 # Testing
 coverage
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
 
 # Turbo
 .turbo
@@ -26,17 +22,10 @@ coverage
 .vercel
 
 # Build Outputs
-.tanstack
 .next/
 out/
 build
-/build/
 dist
-/api/
-/server/build
-/public/build
-.output
-.nitro
 
 
 # Debug
@@ -47,4 +36,3 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
-.cache
