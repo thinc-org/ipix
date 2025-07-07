@@ -35,6 +35,8 @@ dist
 /api/
 /server/build
 /public/build
+.output
+.nitro
 
 
 # Debug
