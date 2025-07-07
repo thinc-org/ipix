@@ -2,13 +2,17 @@
   "name": "@repo/rdb",
   "private": true,
   "type": "module",
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push"
+  },
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
       "default": "./src/index.ts"
     },
     "./schema": {
-      "types": "./dist/src/schema.d.ts",
       "default": "./src/schema.ts"
     }
   },

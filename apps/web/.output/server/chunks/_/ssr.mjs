@@ -1,72 +1,18 @@
-import { createFileRoute, lazyRouteComponent, createRootRoute, Outlet, HeadContent, Scripts, RouterProvider, createRouter as createRouter$1 } from '@tanstack/react-router';
+import { createFileRoute, lazyRouteComponent, createRootRouteWithContext, Outlet, HeadContent, Scripts, RouterProvider, Link, createRouter as createRouter$1 } from '@tanstack/react-router';
+import { routerWithQueryClient } from '@tanstack/react-router-with-query';
 import { jsx, jsxs } from 'react/jsx-runtime';
+import { QueryClient } from '@tanstack/react-query';
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import * as fs from 'node:fs';
 import invariant from 'tiny-invariant';
 import warning from 'tiny-warning';
-import { isPlainObject, isRedirect, isNotFound, joinPaths, trimPath, processRouteTree, isResolvedRedirect, rootRouteId, getMatchedRoutes, createControlledPromise, pick, TSR_DEFERRED_PROMISE, isPlainArray, defer } from '@tanstack/router-core';
+import { isRedirect, isNotFound, rootRouteId, trimPathLeft, joinPaths, trimPath, processRouteTree, isResolvedRedirect, getMatchedRoutes } from '@tanstack/router-core';
+import { tsrSerializer, mergeHeaders, json } from '@tanstack/router-core/ssr/client';
 import { createMemoryHistory } from '@tanstack/history';
+import { attachRouterServerSsrUtils, dehydrateRouter } from '@tanstack/router-core/ssr/server';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import jsesc from 'jsesc';
-import { PassThrough, Readable } from 'node:stream';
-import { isbot } from 'isbot';
-import ReactDOMServer from 'react-dom/server';
-import { ReadableStream as ReadableStream$1 } from 'node:stream/web';
-
-function splitSetCookieString(cookiesString) {
-  if (Array.isArray(cookiesString)) {
-    return cookiesString.flatMap((c) => splitSetCookieString(c));
-  }
-  if (typeof cookiesString !== "string") {
-    return [];
-  }
-  const cookiesStrings = [];
-  let pos = 0;
-  let start;
-  let ch;
-  let lastComma;
-  let nextStart;
-  let cookiesSeparatorFound;
-  const skipWhitespace = () => {
-    while (pos < cookiesString.length && /\s/.test(cookiesString.charAt(pos))) {
-      pos += 1;
-    }
-    return pos < cookiesString.length;
-  };
-  const notSpecialChar = () => {
-    ch = cookiesString.charAt(pos);
-    return ch !== "=" && ch !== ";" && ch !== ",";
-  };
-  while (pos < cookiesString.length) {
-    start = pos;
-    cookiesSeparatorFound = false;
-    while (skipWhitespace()) {
-      ch = cookiesString.charAt(pos);
-      if (ch === ",") {
-        lastComma = pos;
-        pos += 1;
-        skipWhitespace();
-        nextStart = pos;
-        while (pos < cookiesString.length && notSpecialChar()) {
-          pos += 1;
-        }
-        if (pos < cookiesString.length && cookiesString.charAt(pos) === "=") {
-          cookiesSeparatorFound = true;
-          pos = nextStart;
-          cookiesStrings.push(cookiesString.slice(start, lastComma));
-          start = pos;
-        } else {
-          pos = lastComma + 1;
-        }
-      } else {
-        pos += 1;
-      }
-    }
-    if (!cookiesSeparatorFound || pos >= cookiesString.length) {
-      cookiesStrings.push(cookiesString.slice(start, cookiesString.length));
-    }
-  }
-  return cookiesStrings;
-}
+import { defineHandlerCallback, renderRouterToStream } from '@tanstack/react-router/ssr/server';
 
 function hasProp(obj, prop) {
   try {
@@ -592,352 +538,14 @@ async function _callHandler(event, handler, hooks) {
 function StartServer(props) {
   return /* @__PURE__ */ jsx(RouterProvider, { router: props.router });
 }
-function transformReadableStreamWithRouter(router, routerStream) {
-  return transformStreamWithRouter(router, routerStream);
-}
-function transformPipeableStreamWithRouter(router, routerStream) {
-  return Readable.fromWeb(
-    transformStreamWithRouter(router, Readable.toWeb(routerStream))
-  );
-}
-const patternBodyStart = /(<body)/;
-const patternBodyEnd = /(<\/body>)/;
-const patternHtmlEnd = /(<\/html>)/;
-const patternHeadStart = /(<head.*?>)/;
-const patternClosingTag = /(<\/[a-zA-Z][\w:.-]*?>)/g;
-const textDecoder = new TextDecoder();
-function createPassthrough() {
-  let controller;
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream$1({
-    start(c) {
-      controller = c;
-    }
-  });
-  const res = {
-    stream,
-    write: (chunk) => {
-      controller.enqueue(encoder.encode(chunk));
-    },
-    end: (chunk) => {
-      if (chunk) {
-        controller.enqueue(encoder.encode(chunk));
-      }
-      controller.close();
-      res.destroyed = true;
-    },
-    destroy: (error) => {
-      controller.error(error);
-    },
-    destroyed: false
-  };
-  return res;
-}
-async function readStream(stream, opts) {
-  var _a, _b, _c;
-  try {
-    const reader = stream.getReader();
-    let chunk;
-    while (!(chunk = await reader.read()).done) {
-      (_a = opts.onData) == null ? void 0 : _a.call(opts, chunk);
-    }
-    (_b = opts.onEnd) == null ? void 0 : _b.call(opts);
-  } catch (error) {
-    (_c = opts.onError) == null ? void 0 : _c.call(opts, error);
-  }
-}
-function transformStreamWithRouter(router, appStream) {
-  const finalPassThrough = createPassthrough();
-  let isAppRendering = true;
-  let routerStreamBuffer = "";
-  let pendingClosingTags = "";
-  let bodyStarted = false;
-  let headStarted = false;
-  let leftover = "";
-  let leftoverHtml = "";
-  function getBufferedRouterStream() {
-    const html = routerStreamBuffer;
-    routerStreamBuffer = "";
-    return html;
-  }
-  function decodeChunk(chunk) {
-    if (chunk instanceof Uint8Array) {
-      return textDecoder.decode(chunk);
-    }
-    return String(chunk);
-  }
-  const injectedHtmlDonePromise = createControlledPromise();
-  let processingCount = 0;
-  router.serverSsr.injectedHtml.forEach((promise) => {
-    handleInjectedHtml(promise);
-  });
-  const stopListeningToInjectedHtml = router.subscribe(
-    "onInjectedHtml",
-    (e) => {
-      handleInjectedHtml(e.promise);
-    }
-  );
-  function handleInjectedHtml(promise) {
-    processingCount++;
-    promise.then((html) => {
-      if (!bodyStarted) {
-        routerStreamBuffer += html;
-      } else {
-        finalPassThrough.write(html);
-      }
-    }).catch(injectedHtmlDonePromise.reject).finally(() => {
-      processingCount--;
-      if (!isAppRendering && processingCount === 0) {
-        stopListeningToInjectedHtml();
-        injectedHtmlDonePromise.resolve();
-      }
-    });
-  }
-  injectedHtmlDonePromise.then(() => {
-    const finalHtml = leftoverHtml + getBufferedRouterStream() + pendingClosingTags;
-    finalPassThrough.end(finalHtml);
-  }).catch((err) => {
-    console.error("Error reading routerStream:", err);
-    finalPassThrough.destroy(err);
-  });
-  readStream(appStream, {
-    onData: (chunk) => {
-      const text = decodeChunk(chunk.value);
-      let chunkString = leftover + text;
-      const bodyEndMatch = chunkString.match(patternBodyEnd);
-      const htmlEndMatch = chunkString.match(patternHtmlEnd);
-      if (!bodyStarted) {
-        const bodyStartMatch = chunkString.match(patternBodyStart);
-        if (bodyStartMatch) {
-          bodyStarted = true;
-        }
-      }
-      if (!headStarted) {
-        const headStartMatch = chunkString.match(patternHeadStart);
-        if (headStartMatch) {
-          headStarted = true;
-          const index = headStartMatch.index;
-          const headTag = headStartMatch[0];
-          const remaining = chunkString.slice(index + headTag.length);
-          finalPassThrough.write(
-            chunkString.slice(0, index) + headTag + getBufferedRouterStream()
-          );
-          chunkString = remaining;
-        }
-      }
-      if (!bodyStarted) {
-        finalPassThrough.write(chunkString);
-        leftover = "";
-        return;
-      }
-      if (bodyEndMatch && htmlEndMatch && bodyEndMatch.index < htmlEndMatch.index) {
-        const bodyEndIndex = bodyEndMatch.index;
-        pendingClosingTags = chunkString.slice(bodyEndIndex);
-        finalPassThrough.write(
-          chunkString.slice(0, bodyEndIndex) + getBufferedRouterStream()
-        );
-        leftover = "";
-        return;
-      }
-      let result;
-      let lastIndex = 0;
-      while ((result = patternClosingTag.exec(chunkString)) !== null) {
-        lastIndex = result.index + result[0].length;
-      }
-      if (lastIndex > 0) {
-        const processed = chunkString.slice(0, lastIndex) + getBufferedRouterStream() + leftoverHtml;
-        finalPassThrough.write(processed);
-        leftover = chunkString.slice(lastIndex);
-      } else {
-        leftover = chunkString;
-        leftoverHtml += getBufferedRouterStream();
-      }
-    },
-    onEnd: () => {
-      isAppRendering = false;
-      if (processingCount === 0) {
-        injectedHtmlDonePromise.resolve();
-      }
-    },
-    onError: (error) => {
-      console.error("Error reading appStream:", error);
-      finalPassThrough.destroy(error);
-    }
-  });
-  return finalPassThrough.stream;
-}
-function toHeadersInstance(init) {
-  if (init instanceof Headers) {
-    return new Headers(init);
-  } else if (Array.isArray(init)) {
-    return new Headers(init);
-  } else if (typeof init === "object") {
-    return new Headers(init);
-  } else {
-    return new Headers();
-  }
-}
-function mergeHeaders(...headers) {
-  return headers.reduce((acc, header) => {
-    const headersInstance = toHeadersInstance(header);
-    for (const [key, value] of headersInstance.entries()) {
-      if (key === "set-cookie") {
-        const splitCookies = splitSetCookieString(value);
-        splitCookies.forEach((cookie) => acc.append("set-cookie", cookie));
-      } else {
-        acc.set(key, value);
-      }
-    }
-    return acc;
-  }, new Headers());
-}
-const startSerializer = {
-  stringify: (value) => JSON.stringify(value, function replacer(key, val) {
-    const ogVal = this[key];
-    const serializer = serializers.find((t) => t.stringifyCondition(ogVal));
-    if (serializer) {
-      return serializer.stringify(ogVal);
-    }
-    return val;
-  }),
-  parse: (value) => JSON.parse(value, function parser(key, val) {
-    const ogVal = this[key];
-    if (isPlainObject(ogVal)) {
-      const serializer = serializers.find((t) => t.parseCondition(ogVal));
-      if (serializer) {
-        return serializer.parse(ogVal);
-      }
-    }
-    return val;
-  }),
-  encode: (value) => {
-    if (Array.isArray(value)) {
-      return value.map((v) => startSerializer.encode(v));
-    }
-    if (isPlainObject(value)) {
-      return Object.fromEntries(
-        Object.entries(value).map(([key, v]) => [
-          key,
-          startSerializer.encode(v)
-        ])
-      );
-    }
-    const serializer = serializers.find((t) => t.stringifyCondition(value));
-    if (serializer) {
-      return serializer.stringify(value);
-    }
-    return value;
-  },
-  decode: (value) => {
-    if (isPlainObject(value)) {
-      const serializer = serializers.find((t) => t.parseCondition(value));
-      if (serializer) {
-        return serializer.parse(value);
-      }
-    }
-    if (Array.isArray(value)) {
-      return value.map((v) => startSerializer.decode(v));
-    }
-    if (isPlainObject(value)) {
-      return Object.fromEntries(
-        Object.entries(value).map(([key, v]) => [
-          key,
-          startSerializer.decode(v)
-        ])
-      );
-    }
-    return value;
-  }
-};
-const createSerializer = (key, check, toValue, fromValue) => ({
-  key,
-  stringifyCondition: check,
-  stringify: (value) => ({ [`$${key}`]: toValue(value) }),
-  parseCondition: (value) => Object.hasOwn(value, `$${key}`),
-  parse: (value) => fromValue(value[`$${key}`])
-});
-const serializers = [
-  createSerializer(
-    // Key
-    "undefined",
-    // Check
-    (v) => v === void 0,
-    // To
-    () => 0,
-    // From
-    () => void 0
-  ),
-  createSerializer(
-    // Key
-    "date",
-    // Check
-    (v) => v instanceof Date,
-    // To
-    (v) => v.toISOString(),
-    // From
-    (v) => new Date(v)
-  ),
-  createSerializer(
-    // Key
-    "error",
-    // Check
-    (v) => v instanceof Error,
-    // To
-    (v) => ({
-      ...v,
-      message: v.message,
-      stack: void 0,
-      cause: v.cause
-    }),
-    // From
-    (v) => Object.assign(new Error(v.message), v)
-  ),
-  createSerializer(
-    // Key
-    "formData",
-    // Check
-    (v) => v instanceof FormData,
-    // To
-    (v) => {
-      const entries = {};
-      v.forEach((value, key) => {
-        const entry = entries[key];
-        if (entry !== void 0) {
-          if (Array.isArray(entry)) {
-            entry.push(value);
-          } else {
-            entries[key] = [entry, value];
-          }
-        } else {
-          entries[key] = value;
-        }
-      });
-      return entries;
-    },
-    // From
-    (v) => {
-      const formData = new FormData();
-      Object.entries(v).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          value.forEach((val) => formData.append(key, val));
-        } else {
-          formData.append(key, value);
-        }
-      });
-      return formData;
-    }
-  ),
-  createSerializer(
-    // Key
-    "bigint",
-    // Check
-    (v) => typeof v === "bigint",
-    // To
-    (v) => v.toString(),
-    // From
-    (v) => BigInt(v)
-  )
-];
+const defaultStreamHandler = defineHandlerCallback(
+  ({ request, router, responseHeaders }) => renderRouterToStream({
+    request,
+    router,
+    responseHeaders,
+    children: /* @__PURE__ */ jsx(StartServer, { router })
+  })
+);
 const globalMiddleware = [];
 function createServerFn(options, __opts) {
   const resolvedOptions = __opts || options || {};
@@ -1106,13 +714,13 @@ setServerFnStaticCache(() => {
       if (typeof document === "undefined") {
         const hash = jsonToFilenameSafeString(ctx.data);
         const url = await getStaticCacheUrl(ctx, hash);
-        const publicUrl = "C:/Project/IPIX/Turbo Repo POC/apps/web/.output/public";
+        const publicUrl = "C:/Project/IPIX/ipix/apps/web/.output/public";
         const {
           promises: fs2
         } = await import('node:fs');
         const path = await import('node:path');
         const filePath2 = path.join(publicUrl, url);
-        const [cachedResult, readError] = await fs2.readFile(filePath2, "utf-8").then((c) => [startSerializer.parse(c), null]).catch((e) => [null, e]);
+        const [cachedResult, readError] = await fs2.readFile(filePath2, "utf-8").then((c) => [tsrSerializer.parse(c), null]).catch((e) => [null, e]);
         if (readError && readError.code !== "ENOENT") {
           throw readError;
         }
@@ -1127,12 +735,12 @@ setServerFnStaticCache(() => {
       const path = await import('node:path');
       const hash = jsonToFilenameSafeString(ctx.data);
       const url = await getStaticCacheUrl(ctx, hash);
-      const publicUrl = "C:/Project/IPIX/Turbo Repo POC/apps/web/.output/public";
+      const publicUrl = "C:/Project/IPIX/ipix/apps/web/.output/public";
       const filePath2 = path.join(publicUrl, url);
       await fs2.mkdir(path.dirname(filePath2), {
         recursive: true
       });
-      await fs2.writeFile(filePath2, startSerializer.stringify(response));
+      await fs2.writeFile(filePath2, tsrSerializer.stringify(response));
     },
     fetchItem: async (ctx) => {
       const hash = jsonToFilenameSafeString(ctx.data);
@@ -1141,7 +749,7 @@ setServerFnStaticCache(() => {
       if (!result) {
         result = await fetch(url, {
           method: "GET"
-        }).then((r) => r.text()).then((d) => startSerializer.parse(d));
+        }).then((r) => r.text()).then((d) => tsrSerializer.parse(d));
         staticClientCache == null ? void 0 : staticClientCache.set(url, result);
       }
       return result;
@@ -1158,7 +766,7 @@ function extractFormDataContext(formData) {
     };
   }
   try {
-    const context = startSerializer.parse(serializedContext);
+    const context = tsrSerializer.parse(serializedContext);
     return {
       context,
       data: formData
@@ -1270,15 +878,6 @@ function serverFnBaseToMiddleware(options) {
     }
   };
 }
-function json(payload, init) {
-  return new Response(JSON.stringify(payload), {
-    ...init,
-    headers: mergeHeaders(
-      { "content-type": "application/json" },
-      init == null ? void 0 : init.headers
-    )
-  });
-}
 const eventStorage = new AsyncLocalStorage();
 function defineEventHandler(handler) {
   return defineEventHandler$1((event) => {
@@ -1317,240 +916,6 @@ const getResponseHeaders = createWrapperFunction(getResponseHeaders$1);
 function requestHandler(handler) {
   return handler;
 }
-const minifiedTsrBootStrapScript = 'const __TSR_SSR__={matches:[],streamedValues:{},initMatch:o=>(__TSR_SSR__.matches.push(o),o.extracted?.forEach(l=>{if(l.type==="stream"){let r;l.value=new ReadableStream({start(e){r={enqueue:t=>{try{e.enqueue(t)}catch{}},close:()=>{try{e.close()}catch{}}}}}),l.value.controller=r}else{let r,e;l.value=new Promise((t,a)=>{e=a,r=t}),l.value.reject=e,l.value.resolve=r}}),!0),resolvePromise:({matchId:o,id:l,promiseState:r})=>{const e=__TSR_SSR__.matches.find(t=>t.id===o);if(e){const t=e.extracted?.[l];if(t&&t.type==="promise"&&t.value&&r.status==="success")return t.value.resolve(r.data),!0}return!1},injectChunk:({matchId:o,id:l,chunk:r})=>{const e=__TSR_SSR__.matches.find(t=>t.id===o);if(e){const t=e.extracted?.[l];if(t&&t.type==="stream"&&t.value?.controller)return t.value.controller.enqueue(new TextEncoder().encode(r.toString())),!0}return!1},closeStream:({matchId:o,id:l})=>{const r=__TSR_SSR__.matches.find(e=>e.id===o);if(r){const e=r.extracted?.[l];if(e&&e.type==="stream"&&e.value?.controller)return e.value.controller.close(),!0}return!1},cleanScripts:()=>{document.querySelectorAll(".tsr-once").forEach(o=>{o.remove()})}};window.__TSR_SSR__=__TSR_SSR__;\n';
-function attachRouterServerSsrUtils(router, manifest) {
-  router.ssr = {
-    manifest,
-    serializer: startSerializer
-  };
-  router.serverSsr = {
-    injectedHtml: [],
-    streamedKeys: /* @__PURE__ */ new Set(),
-    injectHtml: (getHtml) => {
-      const promise = Promise.resolve().then(getHtml);
-      router.serverSsr.injectedHtml.push(promise);
-      router.emit({
-        type: "onInjectedHtml",
-        promise
-      });
-      return promise.then(() => {
-      });
-    },
-    injectScript: (getScript, opts) => {
-      return router.serverSsr.injectHtml(async () => {
-        const script = await getScript();
-        return `<script class='tsr-once'>${script}${""}; if (typeof __TSR_SSR__ !== 'undefined') __TSR_SSR__.cleanScripts()<\/script>`;
-      });
-    },
-    streamValue: (key, value) => {
-      warning(
-        !router.serverSsr.streamedKeys.has(key),
-        "Key has already been streamed: " + key
-      );
-      router.serverSsr.streamedKeys.add(key);
-      router.serverSsr.injectScript(
-        () => `__TSR_SSR__.streamedValues['${key}'] = { value: ${jsesc(
-          router.ssr.serializer.stringify(value),
-          {
-            isScriptContext: true,
-            wrap: true,
-            json: true
-          }
-        )}}`
-      );
-    },
-    onMatchSettled
-  };
-  router.serverSsr.injectScript(() => minifiedTsrBootStrapScript, {
-    logScript: false
-  });
-}
-function dehydrateRouter(router) {
-  var _a, _b, _c;
-  const dehydratedRouter = {
-    manifest: router.ssr.manifest,
-    dehydratedData: (_b = (_a = router.options).dehydrate) == null ? void 0 : _b.call(_a),
-    lastMatchId: ((_c = router.state.matches[router.state.matches.length - 1]) == null ? void 0 : _c.id) || ""
-  };
-  router.serverSsr.injectScript(
-    () => `__TSR_SSR__.dehydrated = ${jsesc(
-      router.ssr.serializer.stringify(dehydratedRouter),
-      {
-        isScriptContext: true,
-        wrap: true,
-        json: true
-      }
-    )}`
-  );
-}
-function extractAsyncLoaderData(loaderData, ctx) {
-  const extracted = [];
-  const replaced = replaceBy(loaderData, (value, path) => {
-    if (value instanceof ReadableStream) {
-      const [copy1, copy2] = value.tee();
-      const entry = {
-        type: "stream",
-        path,
-        id: extracted.length,
-        matchIndex: ctx.match.index,
-        stream: copy2
-      };
-      extracted.push(entry);
-      return copy1;
-    } else if (value instanceof Promise) {
-      const deferredPromise = defer(value);
-      const entry = {
-        type: "promise",
-        path,
-        id: extracted.length,
-        matchIndex: ctx.match.index,
-        promise: deferredPromise
-      };
-      extracted.push(entry);
-    }
-    return value;
-  });
-  return { replaced, extracted };
-}
-function onMatchSettled(opts) {
-  const { router, match } = opts;
-  let extracted = void 0;
-  let serializedLoaderData = void 0;
-  if (match.loaderData !== void 0) {
-    const result = extractAsyncLoaderData(match.loaderData, {
-      match
-    });
-    match.loaderData = result.replaced;
-    extracted = result.extracted;
-    serializedLoaderData = extracted.reduce(
-      (acc, entry) => {
-        return deepImmutableSetByPath(acc, ["temp", ...entry.path], void 0);
-      },
-      { temp: result.replaced }
-    ).temp;
-  }
-  const initCode = `__TSR_SSR__.initMatch(${jsesc(
-    {
-      id: match.id,
-      __beforeLoadContext: router.ssr.serializer.stringify(
-        match.__beforeLoadContext
-      ),
-      loaderData: router.ssr.serializer.stringify(serializedLoaderData),
-      error: router.ssr.serializer.stringify(match.error),
-      extracted: extracted == null ? void 0 : extracted.map((entry) => pick(entry, ["type", "path"])),
-      updatedAt: match.updatedAt,
-      status: match.status
-    },
-    {
-      isScriptContext: true,
-      wrap: true,
-      json: true
-    }
-  )})`;
-  router.serverSsr.injectScript(() => initCode);
-  if (extracted) {
-    extracted.forEach((entry) => {
-      if (entry.type === "promise") return injectPromise(entry);
-      return injectStream(entry);
-    });
-  }
-  function injectPromise(entry) {
-    router.serverSsr.injectScript(async () => {
-      await entry.promise;
-      return `__TSR_SSR__.resolvePromise(${jsesc(
-        {
-          matchId: match.id,
-          id: entry.id,
-          promiseState: entry.promise[TSR_DEFERRED_PROMISE]
-        },
-        {
-          isScriptContext: true,
-          wrap: true,
-          json: true
-        }
-      )})`;
-    });
-  }
-  function injectStream(entry) {
-    router.serverSsr.injectHtml(async () => {
-      try {
-        const reader = entry.stream.getReader();
-        let chunk = null;
-        while (!(chunk = await reader.read()).done) {
-          if (chunk.value) {
-            const code = `__TSR_SSR__.injectChunk(${jsesc(
-              {
-                matchId: match.id,
-                id: entry.id,
-                chunk: chunk.value
-              },
-              {
-                isScriptContext: true,
-                wrap: true,
-                json: true
-              }
-            )})`;
-            router.serverSsr.injectScript(() => code);
-          }
-        }
-        router.serverSsr.injectScript(
-          () => `__TSR_SSR__.closeStream(${jsesc(
-            {
-              matchId: match.id,
-              id: entry.id
-            },
-            {
-              isScriptContext: true,
-              wrap: true,
-              json: true
-            }
-          )})`
-        );
-      } catch (err) {
-        console.error("stream read error", err);
-      }
-      return "";
-    });
-  }
-}
-function deepImmutableSetByPath(obj, path, value) {
-  if (path.length === 0) {
-    return value;
-  }
-  const [key, ...rest] = path;
-  if (Array.isArray(obj)) {
-    return obj.map((item, i) => {
-      if (i === Number(key)) {
-        return deepImmutableSetByPath(item, rest, value);
-      }
-      return item;
-    });
-  }
-  if (isPlainObject(obj)) {
-    return {
-      ...obj,
-      [key]: deepImmutableSetByPath(obj[key], rest, value)
-    };
-  }
-  return obj;
-}
-function replaceBy(obj, cb, path = []) {
-  if (isPlainArray(obj)) {
-    return obj.map((value, i) => replaceBy(value, cb, [...path, `${i}`]));
-  }
-  if (isPlainObject(obj)) {
-    const newObj2 = {};
-    for (const key in obj) {
-      newObj2[key] = replaceBy(obj[key], cb, [...path, key]);
-    }
-    return newObj2;
-  }
-  const newObj = cb(obj, path);
-  if (newObj !== obj) {
-    return newObj;
-  }
-  return obj;
-}
 const VIRTUAL_MODULES = {
   routeTree: "tanstack-start-route-tree:v",
   startManifest: "tanstack-start-manifest:v",
@@ -1561,9 +926,9 @@ async function loadVirtualModule(id) {
     case VIRTUAL_MODULES.routeTree:
       return await Promise.resolve().then(() => routeTree_gen);
     case VIRTUAL_MODULES.startManifest:
-      return await import('./_tanstack-start-manifest_v-B2EPUfzf.mjs');
+      return await import('./_tanstack-start-manifest_v-CLIfa0LN.mjs');
     case VIRTUAL_MODULES.serverFnManifest:
-      return await import('./_tanstack-start-server-fn-manifest_v-BJ4vRCxB.mjs');
+      return await import('./_tanstack-start-server-fn-manifest_v-KPl_T7Xb.mjs');
     default:
       throw new Error(`Unknown virtual module: ${id}`);
   }
@@ -1658,11 +1023,11 @@ const handleServerAction = async ({
           if (isCreateServerFn) {
             payload2 = search.payload;
           }
-          payload2 = payload2 ? startSerializer.parse(payload2) : payload2;
+          payload2 = payload2 ? tsrSerializer.parse(payload2) : payload2;
           return await action(payload2, signal);
         }
         const jsonPayloadAsString = await request.text();
-        const payload = startSerializer.parse(jsonPayloadAsString);
+        const payload = tsrSerializer.parse(jsonPayloadAsString);
         if (isCreateServerFn) {
           return await action(payload, signal);
         }
@@ -1680,7 +1045,7 @@ const handleServerAction = async ({
       if (isNotFound(result)) {
         return isNotFoundResponse(result);
       }
-      return new Response(result !== void 0 ? startSerializer.stringify(result) : void 0, {
+      return new Response(result !== void 0 ? tsrSerializer.stringify(result) : void 0, {
         status: getResponseStatus(getEvent()),
         headers: {
           "Content-Type": "application/json"
@@ -1698,7 +1063,7 @@ const handleServerAction = async ({
       console.info();
       console.error(error);
       console.info();
-      return new Response(startSerializer.stringify(error), {
+      return new Response(tsrSerializer.stringify(error), {
         status: 500,
         headers: {
           "Content-Type": "application/json"
@@ -2034,70 +1399,122 @@ function isSpecialResponse(err) {
 function isResponse(response) {
   return response instanceof Response;
 }
-function defineHandlerCallback(handler) {
-  return handler;
+function createServerFileRoute(_) {
+  return createServerRoute();
 }
-const defaultStreamHandler = defineHandlerCallback(
-  async ({ request, router, responseHeaders }) => {
-    if (typeof ReactDOMServer.renderToReadableStream === "function") {
-      const stream = await ReactDOMServer.renderToReadableStream(
-        /* @__PURE__ */ jsx(StartServer, { router }),
-        {
-          signal: request.signal
+function createServerRoute(__, __opts) {
+  const options = __opts || {};
+  const route = {
+    isRoot: false,
+    path: "",
+    id: "",
+    fullPath: "",
+    to: "",
+    options,
+    parentRoute: void 0,
+    _types: {},
+    // children: undefined as TChildren,
+    middleware: (middlewares) => createServerRoute(void 0, {
+      ...options,
+      middleware: middlewares
+    }),
+    methods: (methodsOrGetMethods) => {
+      const methods = (() => {
+        if (typeof methodsOrGetMethods === "function") {
+          return methodsOrGetMethods(createMethodBuilder());
         }
-      );
-      if (isbot(request.headers.get("User-Agent"))) {
-        await stream.allReady;
-      }
-      const responseStream = transformReadableStreamWithRouter(
-        router,
-        stream
-      );
-      return new Response(responseStream, {
-        status: router.state.statusCode,
-        headers: responseHeaders
+        return methodsOrGetMethods;
+      })();
+      return createServerRoute(void 0, {
+        ...__opts,
+        methods
       });
-    }
-    if (typeof ReactDOMServer.renderToPipeableStream === "function") {
-      const reactAppPassthrough = new PassThrough();
-      try {
-        const pipeable = ReactDOMServer.renderToPipeableStream(
-          /* @__PURE__ */ jsx(StartServer, { router }),
-          {
-            ...isbot(request.headers.get("User-Agent")) ? {
-              onAllReady() {
-                pipeable.pipe(reactAppPassthrough);
-              }
-            } : {
-              onShellReady() {
-                pipeable.pipe(reactAppPassthrough);
-              }
-            },
-            onError: (error, info) => {
-              if (error instanceof Error && error.message === "ShellBoundaryError")
-                return;
-              console.error("Error in renderToPipeableStream:", error, info);
-            }
-          }
-        );
-      } catch (e) {
-        console.error("Error in renderToPipeableStream:", e);
+    },
+    update: (opts) => createServerRoute(void 0, {
+      ...options,
+      ...opts
+    }),
+    init: (opts) => {
+      var _a;
+      options.originalIndex = opts.originalIndex;
+      const isRoot = !options.path && !options.id;
+      route.parentRoute = (_a = options.getParentRoute) == null ? void 0 : _a.call(options);
+      if (isRoot) {
+        route.path = rootRouteId;
+      } else if (!route.parentRoute) {
+        throw new Error(`Child Route instances must pass a 'getParentRoute: () => ParentRoute' option that returns a ServerRoute instance.`);
       }
-      const responseStream = transformPipeableStreamWithRouter(
-        router,
-        reactAppPassthrough
-      );
-      return new Response(responseStream, {
-        status: router.state.statusCode,
-        headers: responseHeaders
-      });
-    }
-    throw new Error(
-      "No renderToReadableStream or renderToPipeableStream found in react-dom/server. Ensure you are using a version of react-dom that supports streaming."
-    );
-  }
-);
-const Route$1 = createRootRoute({
+      let path = isRoot ? rootRouteId : options.path;
+      if (path && path !== "/") {
+        path = trimPathLeft(path);
+      }
+      const customId = options.id || path;
+      let id = isRoot ? rootRouteId : joinPaths([route.parentRoute.id === rootRouteId ? "" : route.parentRoute.id, customId]);
+      if (path === rootRouteId) {
+        path = "/";
+      }
+      if (id !== rootRouteId) {
+        id = joinPaths(["/", id]);
+      }
+      const fullPath = id === rootRouteId ? "/" : joinPaths([route.parentRoute.fullPath, path]);
+      route.path = path;
+      route.id = id;
+      route.fullPath = fullPath;
+      route.to = fullPath;
+      route.isRoot = isRoot;
+    },
+    _addFileChildren: (children) => {
+      if (Array.isArray(children)) {
+        route.children = children;
+      }
+      if (typeof children === "object" && children !== null) {
+        route.children = Object.values(children);
+      }
+      return route;
+    },
+    _addFileTypes: () => route
+  };
+  return route;
+}
+const createServerRootRoute = createServerRoute;
+const createMethodBuilder = (__opts) => {
+  return {
+    _options: __opts || {},
+    _types: {},
+    middleware: (middlewares) => createMethodBuilder({
+      ...__opts,
+      middlewares
+    }),
+    handler: (handler) => createMethodBuilder({
+      ...__opts,
+      handler
+    })
+  };
+};
+const queryClient = new QueryClient();
+function getContext() {
+  return {
+    queryClient
+  };
+}
+function Header() {
+  return /* @__PURE__ */ jsx("header", { className: "p-2 flex gap-2 bg-white text-black justify-between", children: /* @__PURE__ */ jsxs("nav", { className: "flex flex-row", children: [
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/", children: "Home" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/demo/start/server-funcs", children: "Start - Server Functions" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/demo/start/api-request", children: "Start - API Request" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/demo/tanstack-query", children: "TanStack Query" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/demo/table", children: "TanStack Table" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/demo/form/simple", children: "Simple Form" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/demo/form/address", children: "Address Form" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/demo/store", children: "Store" }) }),
+    /* @__PURE__ */ jsx("div", { className: "px-2 font-bold", children: /* @__PURE__ */ jsx(Link, { to: "/auth", children: "Auth" }) })
+  ] }) });
+}
+function LayoutAddition() {
+  return /* @__PURE__ */ jsx(ReactQueryDevtools, { buttonPosition: "bottom-right" });
+}
+const appCss = "/assets/styles-rklHBh97.css";
+const Route$9 = createRootRouteWithContext()({
   head: () => ({
     meta: [
       {
@@ -2110,15 +1527,23 @@ const Route$1 = createRootRoute({
       {
         title: "TanStack Start Starter"
       }
+    ],
+    links: [
+      {
+        rel: "stylesheet",
+        href: appCss
+      }
     ]
   }),
-  component: RootComponent
+  component: () => /* @__PURE__ */ jsxs(RootDocument, { children: [
+    /* @__PURE__ */ jsx(Header, {}),
+    /* @__PURE__ */ jsx(Outlet, {}),
+    /* @__PURE__ */ jsx(TanStackRouterDevtools, {}),
+    /* @__PURE__ */ jsx(LayoutAddition, {})
+  ] })
 });
-function RootComponent() {
-  return /* @__PURE__ */ jsx(RootDocument, { children: /* @__PURE__ */ jsx(Outlet, {}) });
-}
 function RootDocument({ children }) {
-  return /* @__PURE__ */ jsxs("html", { children: [
+  return /* @__PURE__ */ jsxs("html", { lang: "en", children: [
     /* @__PURE__ */ jsx("head", { children: /* @__PURE__ */ jsx(HeadContent, {}) }),
     /* @__PURE__ */ jsxs("body", { children: [
       children,
@@ -2126,6 +1551,26 @@ function RootDocument({ children }) {
     ] })
   ] });
 }
+const $$splitComponentImporter$8 = () => import('./auth-B-PO2V7o.mjs');
+const Route$8 = createFileRoute("/auth")({
+  component: lazyRouteComponent($$splitComponentImporter$8, "component")
+});
+const $$splitComponentImporter$7 = () => import('./index-DbHBCV9L.mjs');
+const Route$7 = createFileRoute("/")({
+  component: lazyRouteComponent($$splitComponentImporter$7, "component")
+});
+const $$splitComponentImporter$6 = () => import('./demo.tanstack-query-D2oZTEkM.mjs');
+const Route$6 = createFileRoute("/demo/tanstack-query")({
+  component: lazyRouteComponent($$splitComponentImporter$6, "component")
+});
+const $$splitComponentImporter$5 = () => import('./demo.table-B8W1ay23.mjs');
+const Route$5 = createFileRoute("/demo/table")({
+  component: lazyRouteComponent($$splitComponentImporter$5, "component")
+});
+const $$splitComponentImporter$4 = () => import('./demo.store-BlEdmKkx.mjs');
+const Route$4 = createFileRoute("/demo/store")({
+  component: lazyRouteComponent($$splitComponentImporter$4, "component")
+});
 function sanitizeBase(base) {
   return base.replace(/^\/|\/$/g, "");
 }
@@ -2140,12 +1585,12 @@ const createServerRpc = (functionId, serverBase, splitImportFn) => {
     functionId
   });
 };
-const $$splitComponentImporter = () => import('./index-BIh3khi7.mjs');
+const $$splitComponentImporter$3 = () => import('./demo.start.server-funcs-j4kRFzJ2.mjs');
 const filePath = "count.txt";
 async function readCount() {
   return parseInt(await fs.promises.readFile(filePath, "utf-8").catch(() => "0"));
 }
-const getCount_createServerFn_handler = createServerRpc("src_routes_index_tsx--getCount_createServerFn_handler", "/_serverFn", (opts, signal) => {
+const getCount_createServerFn_handler = createServerRpc("src_routes_demo_start_server-funcs_tsx--getCount_createServerFn_handler", "/_serverFn", (opts, signal) => {
   return getCount.__executeServer(opts, signal);
 });
 const getCount = createServerFn({
@@ -2153,30 +1598,119 @@ const getCount = createServerFn({
 }).handler(getCount_createServerFn_handler, () => {
   return readCount();
 });
-const Route = createFileRoute("/")({
-  component: lazyRouteComponent($$splitComponentImporter, "component", () => Route.ssr),
+const Route$3 = createFileRoute("/demo/start/server-funcs")({
+  component: lazyRouteComponent($$splitComponentImporter$3, "component"),
   loader: async () => await getCount()
 });
-const IndexRoute = Route.update({
+const $$splitComponentImporter$2 = () => import('./demo.start.api-request-CX3fyOdg.mjs');
+const Route$2 = createFileRoute("/demo/start/api-request")({
+  component: lazyRouteComponent($$splitComponentImporter$2, "component")
+});
+const $$splitComponentImporter$1 = () => import('./demo.form.simple-ChbGO5mG.mjs');
+const Route$1 = createFileRoute("/demo/form/simple")({
+  component: lazyRouteComponent($$splitComponentImporter$1, "component")
+});
+const $$splitComponentImporter = () => import('./demo.form.address-BErROIaq.mjs');
+const Route = createFileRoute("/demo/form/address")({
+  component: lazyRouteComponent($$splitComponentImporter, "component")
+});
+const ServerRoute = createServerFileRoute().methods({
+  GET: async ({
+    request
+  }) => {
+    return new Response(JSON.stringify(["Alice", "Bob", "Charlie"]), {
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+  }
+});
+const rootServerRouteImport = createServerRootRoute();
+const AuthRoute = Route$8.update({
+  id: "/auth",
+  path: "/auth",
+  getParentRoute: () => Route$9
+});
+const IndexRoute = Route$7.update({
   id: "/",
   path: "/",
-  getParentRoute: () => Route$1
+  getParentRoute: () => Route$9
+});
+const DemoTanstackQueryRoute = Route$6.update({
+  id: "/demo/tanstack-query",
+  path: "/demo/tanstack-query",
+  getParentRoute: () => Route$9
+});
+const DemoTableRoute = Route$5.update({
+  id: "/demo/table",
+  path: "/demo/table",
+  getParentRoute: () => Route$9
+});
+const DemoStoreRoute = Route$4.update({
+  id: "/demo/store",
+  path: "/demo/store",
+  getParentRoute: () => Route$9
+});
+const DemoStartServerFuncsRoute = Route$3.update({
+  id: "/demo/start/server-funcs",
+  path: "/demo/start/server-funcs",
+  getParentRoute: () => Route$9
+});
+const DemoStartApiRequestRoute = Route$2.update({
+  id: "/demo/start/api-request",
+  path: "/demo/start/api-request",
+  getParentRoute: () => Route$9
+});
+const DemoFormSimpleRoute = Route$1.update({
+  id: "/demo/form/simple",
+  path: "/demo/form/simple",
+  getParentRoute: () => Route$9
+});
+const DemoFormAddressRoute = Route.update({
+  id: "/demo/form/address",
+  path: "/demo/form/address",
+  getParentRoute: () => Route$9
+});
+const ApiDemoNamesServerRoute = ServerRoute.update({
+  id: "/api/demo-names",
+  path: "/api/demo-names",
+  getParentRoute: () => rootServerRouteImport
 });
 const rootRouteChildren = {
-  IndexRoute
+  IndexRoute,
+  AuthRoute,
+  DemoStoreRoute,
+  DemoTableRoute,
+  DemoTanstackQueryRoute,
+  DemoFormAddressRoute,
+  DemoFormSimpleRoute,
+  DemoStartApiRequestRoute,
+  DemoStartServerFuncsRoute
 };
-const routeTree = Route$1._addFileChildren(rootRouteChildren)._addFileTypes();
+const routeTree = Route$9._addFileChildren(rootRouteChildren)._addFileTypes();
+const rootServerRouteChildren = {
+  ApiDemoNamesServerRoute
+};
+const serverRouteTree = rootServerRouteImport._addFileChildren(rootServerRouteChildren)._addFileTypes();
 const routeTree_gen = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  routeTree
+  routeTree,
+  serverRouteTree
 }, Symbol.toStringTag, { value: "Module" }));
-function createRouter() {
-  const router = createRouter$1({
-    routeTree,
-    scrollRestoration: true
-  });
+const createRouter = () => {
+  const router = routerWithQueryClient(
+    createRouter$1({
+      routeTree,
+      context: {
+        ...getContext()
+      },
+      scrollRestoration: true,
+      defaultPreloadStaleTime: 0
+    }),
+    getContext().queryClient
+  );
   return router;
-}
+};
 const serverEntry$1 = createStartHandler({
   createRouter
 })(defaultStreamHandler);
@@ -2185,5 +1719,5 @@ const serverEntry = defineEventHandler(function(event) {
   return serverEntry$1({ request });
 });
 
-export { Route as R, createServerRpc as a, createServerFn as c, serverEntry as default };
+export { Route$3 as R, createServerRpc as a, createServerFn as c, serverEntry as default };
 //# sourceMappingURL=ssr.mjs.map

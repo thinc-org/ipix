@@ -5,8 +5,29 @@ import { openAPI } from "better-auth/plugins";
 import { createDb } from "../../drizzle/client.js";
 import { authTable } from "@repo/rdb/schema";
 
-const auth = betterAuth({
-  database: drizzleAdapter(createDb, {
+export const auth = betterAuth({
+  baseURL: "http://localhost:3000/auth",
+  trustedOrigins: ["http://localhost:3000", "http://[::1]:3000"],
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: false, // Set to true in production with HTTPS
+    },
+    redirectProxy: {
+      enabled: true,
+      url: "http://localhost:3000/auth?callback=true", // Add a query param to identify callback
+    },
+    generateId: () => crypto.randomUUID(),
+  },
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    },
+  },
+  database: drizzleAdapter(createDb({
+    databaseUrl: process.env.DATABASE_URL,
+  }), {
     provider: "pg",
     schema: authTable,
   }),
@@ -20,8 +41,11 @@ const auth = betterAuth({
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
     },
     github: {
+      enabled: true,
       clientId: process.env.GITHUB_CLIENT_ID as string,
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      redirectURI: "http://localhost:20257/api/auth/callback/github",
+      scope: ["user:email", "read:user"],
     },
   },
   plugins: [openAPI()],
@@ -52,9 +76,26 @@ export const betterAuthOpenAPI = {
 } as const;
 
 export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
-  .all("/api/auth/*", (context: Context) => {
+  .all("/api/auth/*", async (context: Context) => {
     if (["POST", "GET"].includes(context.request.method)) {
-      return auth.handler(context.request);
+      const response = await auth.handler(context.request);
+      
+      // If it's a redirect response, make sure to return it properly
+      if (response && response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('Location');
+        if (location) {
+          console.log('Redirecting to:', location);
+          return new Response(null, {
+            status: response.status,
+            headers: {
+              'Location': location,
+              'Set-Cookie': response.headers.get('Set-Cookie') || '',
+            }
+          });
+        }
+      }
+      
+      return response;
     }
 
     context.status(405);

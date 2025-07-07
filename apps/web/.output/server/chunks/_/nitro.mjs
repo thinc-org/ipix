@@ -582,7 +582,7 @@ const defuFn = createDefu((object, key, currentValue) => {
   }
 });
 
-function o(n){throw new Error(`${n} is not implemented yet!`)}let i$1 = class i extends EventEmitter{__unenv__={};readableEncoding=null;readableEnded=true;readableFlowing=false;readableHighWaterMark=0;readableLength=0;readableObjectMode=false;readableAborted=false;readableDidRead=false;closed=false;errored=null;readable=false;destroyed=false;static from(e,t){return new i(t)}constructor(e){super();}_read(e){}read(e){}setEncoding(e){return this}pause(){return this}resume(){return this}isPaused(){return  true}unpipe(e){return this}unshift(e,t){}wrap(e){return this}push(e,t){return  false}_destroy(e,t){this.removeAllListeners();}destroy(e){return this.destroyed=true,this._destroy(e),this}pipe(e,t){return {}}compose(e,t){throw new Error("Method not implemented.")}[Symbol.asyncDispose](){return this.destroy(),Promise.resolve()}async*[Symbol.asyncIterator](){throw o("Readable.asyncIterator")}iterator(e){throw o("Readable.iterator")}map(e,t){throw o("Readable.map")}filter(e,t){throw o("Readable.filter")}forEach(e,t){throw o("Readable.forEach")}reduce(e,t,r){throw o("Readable.reduce")}find(e,t){throw o("Readable.find")}findIndex(e,t){throw o("Readable.findIndex")}some(e,t){throw o("Readable.some")}toArray(e){throw o("Readable.toArray")}every(e,t){throw o("Readable.every")}flatMap(e,t){throw o("Readable.flatMap")}drop(e,t){throw o("Readable.drop")}take(e,t){throw o("Readable.take")}asIndexedPairs(e){throw o("Readable.asIndexedPairs")}};let l$1 = class l extends EventEmitter{__unenv__={};writable=true;writableEnded=false;writableFinished=false;writableHighWaterMark=0;writableLength=0;writableObjectMode=false;writableCorked=0;closed=false;errored=null;writableNeedDrain=false;destroyed=false;_data;_encoding="utf8";constructor(e){super();}pipe(e,t){return {}}_write(e,t,r){if(this.writableEnded){r&&r();return}if(this._data===void 0)this._data=e;else {const s=typeof this._data=="string"?Buffer$1.from(this._data,this._encoding||t||"utf8"):this._data,a=typeof e=="string"?Buffer$1.from(e,t||this._encoding||"utf8"):e;this._data=Buffer$1.concat([s,a]);}this._encoding=t,r&&r();}_writev(e,t){}_destroy(e,t){}_final(e){}write(e,t,r){const s=typeof t=="string"?this._encoding:"utf8",a=typeof t=="function"?t:typeof r=="function"?r:void 0;return this._write(e,s,a),true}setDefaultEncoding(e){return this}end(e,t,r){const s=typeof e=="function"?e:typeof t=="function"?t:typeof r=="function"?r:void 0;if(this.writableEnded)return s&&s(),this;const a=e===s?void 0:e;if(a){const u=t===s?void 0:t;this.write(a,u,s);}return this.writableEnded=true,this.writableFinished=true,this.emit("close"),this.emit("finish"),this}cork(){}uncork(){}destroy(e){return this.destroyed=true,delete this._data,this.removeAllListeners(),this}compose(e,t){throw new Error("Method not implemented.")}};const c=class{allowHalfOpen=true;_destroy;constructor(e=new i$1,t=new l$1){Object.assign(this,e),Object.assign(this,t),this._destroy=g(e._destroy,t._destroy);}};function _(){return Object.assign(c.prototype,i$1.prototype),Object.assign(c.prototype,l$1.prototype),c}function g(...n){return function(...e){for(const t of n)t(...e);}}const m=_();class A extends m{__unenv__={};bufferSize=0;bytesRead=0;bytesWritten=0;connecting=false;destroyed=false;pending=false;localAddress="";localPort=0;remoteAddress="";remoteFamily="";remotePort=0;autoSelectFamilyAttemptedAddresses=[];readyState="readOnly";constructor(e){super();}write(e,t,r){return  false}connect(e,t,r){return this}end(e,t,r){return this}setEncoding(e){return this}pause(){return this}resume(){return this}setTimeout(e,t){return this}setNoDelay(e){return this}setKeepAlive(e,t){return this}address(){return {}}unref(){return this}ref(){return this}destroySoon(){this.destroy();}resetAndDestroy(){const e=new Error("ERR_SOCKET_CLOSED");return e.code="ERR_SOCKET_CLOSED",this.destroy(e),this}}class y extends i$1{aborted=false;httpVersion="1.1";httpVersionMajor=1;httpVersionMinor=1;complete=true;connection;socket;headers={};trailers={};method="GET";url="/";statusCode=200;statusMessage="";closed=false;errored=null;readable=false;constructor(e){super(),this.socket=this.connection=e||new A;}get rawHeaders(){const e=this.headers,t=[];for(const r in e)if(Array.isArray(e[r]))for(const s of e[r])t.push(r,s);else t.push(r,e[r]);return t}get rawTrailers(){return []}setTimeout(e,t){return this}get headersDistinct(){return p(this.headers)}get trailersDistinct(){return p(this.trailers)}}function p(n){const e={};for(const[t,r]of Object.entries(n))t&&(e[t]=(Array.isArray(r)?r:[r]).filter(Boolean));return e}class w extends l$1{statusCode=200;statusMessage="";upgrading=false;chunkedEncoding=false;shouldKeepAlive=false;useChunkedEncodingByDefault=false;sendDate=false;finished=false;headersSent=false;strictContentLength=false;connection=null;socket=null;req;_headers={};constructor(e){super(),this.req=e;}assignSocket(e){e._httpMessage=this,this.socket=e,this.connection=e,this.emit("socket",e),this._flush();}_flush(){this.flushHeaders();}detachSocket(e){}writeContinue(e){}writeHead(e,t,r){e&&(this.statusCode=e),typeof t=="string"&&(this.statusMessage=t,t=void 0);const s=r||t;if(s&&!Array.isArray(s))for(const a in s)this.setHeader(a,s[a]);return this.headersSent=true,this}writeProcessing(){}setTimeout(e,t){return this}appendHeader(e,t){e=e.toLowerCase();const r=this._headers[e],s=[...Array.isArray(r)?r:[r],...Array.isArray(t)?t:[t]].filter(Boolean);return this._headers[e]=s.length>1?s:s[0],this}setHeader(e,t){return this._headers[e.toLowerCase()]=t,this}setHeaders(e){for(const[t,r]of Object.entries(e))this.setHeader(t,r);return this}getHeader(e){return this._headers[e.toLowerCase()]}getHeaders(){return this._headers}getHeaderNames(){return Object.keys(this._headers)}hasHeader(e){return e.toLowerCase()in this._headers}removeHeader(e){delete this._headers[e.toLowerCase()];}addTrailers(e){}flushHeaders(){}writeEarlyHints(e,t){typeof t=="function"&&t();}}const E=(()=>{const n=function(){};return n.prototype=Object.create(null),n})();function R(n={}){const e=new E,t=Array.isArray(n)||H(n)?n:Object.entries(n);for(const[r,s]of t)if(s){if(e[r]===void 0){e[r]=s;continue}e[r]=[...Array.isArray(e[r])?e[r]:[e[r]],...Array.isArray(s)?s:[s]];}return e}function H(n){return typeof n?.entries=="function"}function S(n={}){if(n instanceof Headers)return n;const e=new Headers;for(const[t,r]of Object.entries(n))if(r!==void 0){if(Array.isArray(r)){for(const s of r)e.append(t,String(s));continue}e.set(t,String(r));}return e}const C=new Set([101,204,205,304]);async function b(n,e){const t=new y,r=new w(t);t.url=e.url?.toString()||"/";let s;if(!t.url.startsWith("/")){const d=new URL(t.url);s=d.host,t.url=d.pathname+d.search+d.hash;}t.method=e.method||"GET",t.headers=R(e.headers||{}),t.headers.host||(t.headers.host=e.host||s||"localhost"),t.connection.encrypted=t.connection.encrypted||e.protocol==="https",t.body=e.body||null,t.__unenv__=e.context,await n(t,r);let a=r._data;(C.has(r.statusCode)||t.method.toUpperCase()==="HEAD")&&(a=null,delete r._headers["content-length"]);const u={status:r.statusCode,statusText:r.statusMessage,headers:r._headers,body:a};return t.destroy(),r.destroy(),u}async function O(n,e,t={}){try{const r=await b(n,{url:e,...t});return new Response(r.body,{status:r.status,statusText:r.statusText,headers:S(r.headers)})}catch(r){return new Response(r.toString(),{status:Number.parseInt(r.statusCode||r.code)||500,statusText:r.statusText})}}
+function o(n){throw new Error(`${n} is not implemented yet!`)}let i$1 = class i extends EventEmitter{__unenv__={};readableEncoding=null;readableEnded=true;readableFlowing=false;readableHighWaterMark=0;readableLength=0;readableObjectMode=false;readableAborted=false;readableDidRead=false;closed=false;errored=null;readable=false;destroyed=false;static from(e,t){return new i(t)}constructor(e){super();}_read(e){}read(e){}setEncoding(e){return this}pause(){return this}resume(){return this}isPaused(){return  true}unpipe(e){return this}unshift(e,t){}wrap(e){return this}push(e,t){return  false}_destroy(e,t){this.removeAllListeners();}destroy(e){return this.destroyed=true,this._destroy(e),this}pipe(e,t){return {}}compose(e,t){throw new Error("Method not implemented.")}[Symbol.asyncDispose](){return this.destroy(),Promise.resolve()}async*[Symbol.asyncIterator](){throw o("Readable.asyncIterator")}iterator(e){throw o("Readable.iterator")}map(e,t){throw o("Readable.map")}filter(e,t){throw o("Readable.filter")}forEach(e,t){throw o("Readable.forEach")}reduce(e,t,r){throw o("Readable.reduce")}find(e,t){throw o("Readable.find")}findIndex(e,t){throw o("Readable.findIndex")}some(e,t){throw o("Readable.some")}toArray(e){throw o("Readable.toArray")}every(e,t){throw o("Readable.every")}flatMap(e,t){throw o("Readable.flatMap")}drop(e,t){throw o("Readable.drop")}take(e,t){throw o("Readable.take")}asIndexedPairs(e){throw o("Readable.asIndexedPairs")}};let l$1 = class l extends EventEmitter{__unenv__={};writable=true;writableEnded=false;writableFinished=false;writableHighWaterMark=0;writableLength=0;writableObjectMode=false;writableCorked=0;closed=false;errored=null;writableNeedDrain=false;writableAborted=false;destroyed=false;_data;_encoding="utf8";constructor(e){super();}pipe(e,t){return {}}_write(e,t,r){if(this.writableEnded){r&&r();return}if(this._data===void 0)this._data=e;else {const s=typeof this._data=="string"?Buffer$1.from(this._data,this._encoding||t||"utf8"):this._data,a=typeof e=="string"?Buffer$1.from(e,t||this._encoding||"utf8"):e;this._data=Buffer$1.concat([s,a]);}this._encoding=t,r&&r();}_writev(e,t){}_destroy(e,t){}_final(e){}write(e,t,r){const s=typeof t=="string"?this._encoding:"utf8",a=typeof t=="function"?t:typeof r=="function"?r:void 0;return this._write(e,s,a),true}setDefaultEncoding(e){return this}end(e,t,r){const s=typeof e=="function"?e:typeof t=="function"?t:typeof r=="function"?r:void 0;if(this.writableEnded)return s&&s(),this;const a=e===s?void 0:e;if(a){const u=t===s?void 0:t;this.write(a,u,s);}return this.writableEnded=true,this.writableFinished=true,this.emit("close"),this.emit("finish"),this}cork(){}uncork(){}destroy(e){return this.destroyed=true,delete this._data,this.removeAllListeners(),this}compose(e,t){throw new Error("Method not implemented.")}};const c=class{allowHalfOpen=true;_destroy;constructor(e=new i$1,t=new l$1){Object.assign(this,e),Object.assign(this,t),this._destroy=g(e._destroy,t._destroy);}};function _(){return Object.assign(c.prototype,i$1.prototype),Object.assign(c.prototype,l$1.prototype),c}function g(...n){return function(...e){for(const t of n)t(...e);}}const m=_();class A extends m{__unenv__={};bufferSize=0;bytesRead=0;bytesWritten=0;connecting=false;destroyed=false;pending=false;localAddress="";localPort=0;remoteAddress="";remoteFamily="";remotePort=0;autoSelectFamilyAttemptedAddresses=[];readyState="readOnly";constructor(e){super();}write(e,t,r){return  false}connect(e,t,r){return this}end(e,t,r){return this}setEncoding(e){return this}pause(){return this}resume(){return this}setTimeout(e,t){return this}setNoDelay(e){return this}setKeepAlive(e,t){return this}address(){return {}}unref(){return this}ref(){return this}destroySoon(){this.destroy();}resetAndDestroy(){const e=new Error("ERR_SOCKET_CLOSED");return e.code="ERR_SOCKET_CLOSED",this.destroy(e),this}}class y extends i$1{aborted=false;httpVersion="1.1";httpVersionMajor=1;httpVersionMinor=1;complete=true;connection;socket;headers={};trailers={};method="GET";url="/";statusCode=200;statusMessage="";closed=false;errored=null;readable=false;constructor(e){super(),this.socket=this.connection=e||new A;}get rawHeaders(){const e=this.headers,t=[];for(const r in e)if(Array.isArray(e[r]))for(const s of e[r])t.push(r,s);else t.push(r,e[r]);return t}get rawTrailers(){return []}setTimeout(e,t){return this}get headersDistinct(){return p(this.headers)}get trailersDistinct(){return p(this.trailers)}}function p(n){const e={};for(const[t,r]of Object.entries(n))t&&(e[t]=(Array.isArray(r)?r:[r]).filter(Boolean));return e}class w extends l$1{statusCode=200;statusMessage="";upgrading=false;chunkedEncoding=false;shouldKeepAlive=false;useChunkedEncodingByDefault=false;sendDate=false;finished=false;headersSent=false;strictContentLength=false;connection=null;socket=null;req;_headers={};constructor(e){super(),this.req=e;}assignSocket(e){e._httpMessage=this,this.socket=e,this.connection=e,this.emit("socket",e),this._flush();}_flush(){this.flushHeaders();}detachSocket(e){}writeContinue(e){}writeHead(e,t,r){e&&(this.statusCode=e),typeof t=="string"&&(this.statusMessage=t,t=void 0);const s=r||t;if(s&&!Array.isArray(s))for(const a in s)this.setHeader(a,s[a]);return this.headersSent=true,this}writeProcessing(){}setTimeout(e,t){return this}appendHeader(e,t){e=e.toLowerCase();const r=this._headers[e],s=[...Array.isArray(r)?r:[r],...Array.isArray(t)?t:[t]].filter(Boolean);return this._headers[e]=s.length>1?s:s[0],this}setHeader(e,t){return this._headers[e.toLowerCase()]=t,this}setHeaders(e){for(const[t,r]of Object.entries(e))this.setHeader(t,r);return this}getHeader(e){return this._headers[e.toLowerCase()]}getHeaders(){return this._headers}getHeaderNames(){return Object.keys(this._headers)}hasHeader(e){return e.toLowerCase()in this._headers}removeHeader(e){delete this._headers[e.toLowerCase()];}addTrailers(e){}flushHeaders(){}writeEarlyHints(e,t){typeof t=="function"&&t();}}const E=(()=>{const n=function(){};return n.prototype=Object.create(null),n})();function R(n={}){const e=new E,t=Array.isArray(n)||H(n)?n:Object.entries(n);for(const[r,s]of t)if(s){if(e[r]===void 0){e[r]=s;continue}e[r]=[...Array.isArray(e[r])?e[r]:[e[r]],...Array.isArray(s)?s:[s]];}return e}function H(n){return typeof n?.entries=="function"}function v(n={}){if(n instanceof Headers)return n;const e=new Headers;for(const[t,r]of Object.entries(n))if(r!==void 0){if(Array.isArray(r)){for(const s of r)e.append(t,String(s));continue}e.set(t,String(r));}return e}const S=new Set([101,204,205,304]);async function b(n,e){const t=new y,r=new w(t);t.url=e.url?.toString()||"/";let s;if(!t.url.startsWith("/")){const d=new URL(t.url);s=d.host,t.url=d.pathname+d.search+d.hash;}t.method=e.method||"GET",t.headers=R(e.headers||{}),t.headers.host||(t.headers.host=e.host||s||"localhost"),t.connection.encrypted=t.connection.encrypted||e.protocol==="https",t.body=e.body||null,t.__unenv__=e.context,await n(t,r);let a=r._data;(S.has(r.statusCode)||t.method.toUpperCase()==="HEAD")&&(a=null,delete r._headers["content-length"]);const u={status:r.statusCode,statusText:r.statusMessage,headers:r._headers,body:a};return t.destroy(),r.destroy(),u}async function C(n,e,t={}){try{const r=await b(n,{url:e,...t});return new Response(r.body,{status:r.status,statusText:r.statusText,headers:v(r.headers)})}catch(r){return new Response(r.toString(),{status:Number.parseInt(r.statusCode||r.code)||500,statusText:r.statusText})}}
 
 function hasProp(obj, prop) {
   try {
@@ -4129,26 +4129,152 @@ const plugins = [
 ];
 
 const assets = {
+  "/favicon.ico": {
+    "type": "image/vnd.microsoft.icon",
+    "etag": "\"f1e-ESBTjHetHyiokkO0tT/irBbMO8Y\"",
+    "mtime": "2025-07-07T10:37:33.667Z",
+    "size": 3870,
+    "path": "../public/favicon.ico"
+  },
+  "/logo192.png": {
+    "type": "image/png",
+    "etag": "\"14e3-f08taHgqf6/O2oRVTsq5tImHdQA\"",
+    "mtime": "2025-07-07T10:37:33.668Z",
+    "size": 5347,
+    "path": "../public/logo192.png"
+  },
+  "/logo512.png": {
+    "type": "image/png",
+    "etag": "\"25c0-RpFfnQJpTtSb/HqVNJR2hBA9w/4\"",
+    "mtime": "2025-07-07T10:37:33.668Z",
+    "size": 9664,
+    "path": "../public/logo512.png"
+  },
+  "/manifest.json": {
+    "type": "application/json",
+    "etag": "\"1f2-Oqn/x1R1hBTtEjA8nFhpBeFJJNg\"",
+    "mtime": "2025-07-07T10:37:33.669Z",
+    "size": 498,
+    "path": "../public/manifest.json"
+  },
+  "/robots.txt": {
+    "type": "text/plain; charset=utf-8",
+    "etag": "\"43-BEzmj4PuhUNHX+oW9uOnPSihxtU\"",
+    "mtime": "2025-07-07T10:37:33.669Z",
+    "size": 67,
+    "path": "../public/robots.txt"
+  },
+  "/assets/auth-h25iEiQH.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"2dd03-3085PVMog9XIOPFEBs1U7F/sQIM\"",
+    "mtime": "2025-07-07T13:10:58.468Z",
+    "size": 187651,
+    "path": "../public/assets/auth-h25iEiQH.js"
+  },
+  "/assets/demo.form-CQSjhyDS.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"215d3-7zC50WW/Oq5AGOUInXM63aH69X4\"",
+    "mtime": "2025-07-07T13:10:58.470Z",
+    "size": 136659,
+    "path": "../public/assets/demo.form-CQSjhyDS.js"
+  },
+  "/assets/demo.form.address-QE1lSzEF.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"bd7-atnnh0GPvqPZ5GPg9B4W2yeNKHM\"",
+    "mtime": "2025-07-07T13:10:58.469Z",
+    "size": 3031,
+    "path": "../public/assets/demo.form.address-QE1lSzEF.js"
+  },
+  "/assets/demo.form.simple-DdjcIqdf.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"4bf-An632m+z8itHIMO+PVrDF6Tz/Ws\"",
+    "mtime": "2025-07-07T13:10:58.469Z",
+    "size": 1215,
+    "path": "../public/assets/demo.form.simple-DdjcIqdf.js"
+  },
+  "/assets/demo.start.api-request-6BPr8CYv.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"129-G+9bH3lkLKP5qdydIIPVmfEaGfc\"",
+    "mtime": "2025-07-07T13:10:58.469Z",
+    "size": 297,
+    "path": "../public/assets/demo.start.api-request-6BPr8CYv.js"
+  },
+  "/assets/demo.start.server-funcs-oxQzauVt.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"201-bF1M/578vBnh03W2u2gEhHhhdao\"",
+    "mtime": "2025-07-07T13:10:58.469Z",
+    "size": 513,
+    "path": "../public/assets/demo.start.server-funcs-oxQzauVt.js"
+  },
+  "/assets/demo.store-YgceeMEU.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"5bf-SFpw7g1sloEPuoK1p7xnQt8H4f0\"",
+    "mtime": "2025-07-07T13:10:58.468Z",
+    "size": 1471,
+    "path": "../public/assets/demo.store-YgceeMEU.js"
+  },
+  "/assets/demo.table-By0Ln8i1.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"8044f-uRSaV+ZxKwf/Re+WMDtubdK3hEs\"",
+    "mtime": "2025-07-07T13:10:58.470Z",
+    "size": 525391,
+    "path": "../public/assets/demo.table-By0Ln8i1.js"
+  },
+  "/assets/demo.tanstack-query-BsbpXr1p.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"22f8-m1hghjFDYsex/5tBYfDyV1lRcek\"",
+    "mtime": "2025-07-07T13:10:58.468Z",
+    "size": 8952,
+    "path": "../public/assets/demo.tanstack-query-BsbpXr1p.js"
+  },
+  "/assets/index-ClTZFVaA.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"33b-Y1zB50EqvIdSugXq1leZY1uOIVY\"",
+    "mtime": "2025-07-07T13:10:58.468Z",
+    "size": 827,
+    "path": "../public/assets/index-ClTZFVaA.js"
+  },
+  "/assets/logo-CHtJT8UQ.svg": {
+    "type": "image/svg+xml",
+    "etag": "\"21a0-mFG3bLdagHIeK0ThLR52w7noTKo\"",
+    "mtime": "2025-07-07T13:10:58.468Z",
+    "size": 8608,
+    "path": "../public/assets/logo-CHtJT8UQ.svg"
+  },
+  "/assets/main-DS40ZeVL.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"4c24b-yZe91joGIRirRD+aBjdmxGgbpsk\"",
+    "mtime": "2025-07-07T13:10:58.469Z",
+    "size": 311883,
+    "path": "../public/assets/main-DS40ZeVL.js"
+  },
+  "/assets/server-DUznqEvH.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"220a-bhjYpJfcQxPvU4oZNh2sFMQ2KAk\"",
+    "mtime": "2025-07-07T13:10:58.469Z",
+    "size": 8714,
+    "path": "../public/assets/server-DUznqEvH.js"
+  },
+  "/assets/styles-rklHBh97.css": {
+    "type": "text/css; charset=utf-8",
+    "etag": "\"9905-AONuly5zWZRAwILzG8knLcqneHQ\"",
+    "mtime": "2025-07-07T13:10:58.468Z",
+    "size": 39173,
+    "path": "../public/assets/styles-rklHBh97.css"
+  },
+  "/assets/types-B8YapRiX.js": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"d306-mqC91nwKPXk8A4uH0QX0MKBtvO4\"",
+    "mtime": "2025-07-07T13:10:58.469Z",
+    "size": 54022,
+    "path": "../public/assets/types-B8YapRiX.js"
+  },
   "/.vite/manifest.json": {
     "type": "application/json",
-    "etag": "\"22c-jYPkpWiPX2Q0Z/9vG7EOXPm5Ub8\"",
-    "mtime": "2025-06-26T06:58:22.756Z",
-    "size": 556,
+    "etag": "\"12b1-ZIcVehEj+yzuUJEMHSBGOU1OCks\"",
+    "mtime": "2025-07-07T13:10:58.467Z",
+    "size": 4785,
     "path": "../public/.vite/manifest.json"
-  },
-  "/assets/index-yGCxlnTG.js": {
-    "type": "text/javascript; charset=utf-8",
-    "etag": "\"176-KcGmjxwbNNN6DIf3DZB4Q22h0Vo\"",
-    "mtime": "2025-06-26T06:58:22.756Z",
-    "size": 374,
-    "path": "../public/assets/index-yGCxlnTG.js"
-  },
-  "/assets/main-kZmXyu05.js": {
-    "type": "text/javascript; charset=utf-8",
-    "etag": "\"432b1-cqvKeo30S8177QDiGDOUna2Gkrw\"",
-    "mtime": "2025-06-26T06:58:22.756Z",
-    "size": 275121,
-    "path": "../public/assets/main-kZmXyu05.js"
   }
 };
 
@@ -4278,7 +4404,7 @@ function getAsset (id) {
 
 const METHODS = /* @__PURE__ */ new Set(["HEAD", "GET"]);
 const EncodingMap = { gzip: ".gz", br: ".br" };
-const _mxtwq2 = eventHandler((event) => {
+const _V55zpo = eventHandler((event) => {
   if (event.method && !METHODS.has(event.method)) {
     return;
   }
@@ -4345,7 +4471,7 @@ const _mxtwq2 = eventHandler((event) => {
 const _lazy_vr5YKA = () => import('./ssr.mjs');
 
 const handlers = [
-  { route: '', handler: _mxtwq2, lazy: false, middleware: true, method: undefined },
+  { route: '', handler: _V55zpo, lazy: false, middleware: true, method: undefined },
   { route: '/**', handler: _lazy_vr5YKA, lazy: true, middleware: false, method: undefined }
 ];
 
@@ -4426,7 +4552,7 @@ function createNitroApp() {
     if (!input.toString().startsWith("/")) {
       return globalThis.fetch(input, init);
     }
-    return O(
+    return C(
       nodeHandler,
       input,
       init

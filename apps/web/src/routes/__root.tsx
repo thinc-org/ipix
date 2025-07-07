@@ -1,14 +1,24 @@
-// src/routes/__root.tsx
-/// <reference types="vite/client" />
-import type { ReactNode } from 'react'
 import {
   Outlet,
-  createRootRoute,
   HeadContent,
   Scripts,
+  createRootRouteWithContext,
 } from '@tanstack/react-router'
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
-export const Route = createRootRoute({
+import Header from '../components/Header'
+
+import TanStackQueryLayout from '../integrations/tanstack-query/layout.tsx'
+
+import appCss from '../styles.css?url'
+
+import type { QueryClient } from '@tanstack/react-query'
+
+interface MyRouterContext {
+  queryClient: QueryClient
+}
+
+export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
     meta: [
       {
@@ -22,21 +32,29 @@ export const Route = createRootRoute({
         title: 'TanStack Start Starter',
       },
     ],
+    links: [
+      {
+        rel: 'stylesheet',
+        href: appCss,
+      },
+    ],
   }),
-  component: RootComponent,
+
+  component: () => (
+    <RootDocument>
+      <Header />
+
+      <Outlet />
+      <TanStackRouterDevtools />
+
+      <TanStackQueryLayout />
+    </RootDocument>
+  ),
 })
 
-function RootComponent() {
+function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
-  )
-}
-
-function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
-  return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>

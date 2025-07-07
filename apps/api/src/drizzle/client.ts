@@ -14,7 +14,7 @@ export const createDb = (opts?: DatabaseClientOptions): DatabaseInstance => {
     schema,
     casing: 'snake_case',
     connection: {
-      connectionString: opts?.databaseUrl,
+      connectionString: process.env.DATABASE_URL!,
       max: opts?.max,
     },
   });
