@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Button } from "~/components/ui/button";
-import { Progress } from "~/components/ui/progress";
-import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
-import { cn } from "~/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
-import { Link } from "react-router";
+import { Link } from "@tanstack/react-router";
 import { Image, Users } from "lucide-react";
 
 const user = {

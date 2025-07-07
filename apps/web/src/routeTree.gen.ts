@@ -13,10 +13,12 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
+import { Route as SharewithmeIndexRouteImport } from './routes/sharewithme/index'
+import { Route as MyipixIndexRouteImport } from './routes/myipix/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo.tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo.table'
 import { Route as DemoStoreRouteImport } from './routes/demo.store'
-import { Route as DemoStartServerFuncsRouteImport } from './routes/demo.start.server-funcs'
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo.start.api-request'
 import { Route as DemoFormSimpleRouteImport } from './routes/demo.form.simple'
 import { Route as DemoFormAddressRouteImport } from './routes/demo.form.address'
@@ -34,6 +36,21 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignInIndexRoute = SignInIndexRouteImport.update({
+  id: '/sign-in/',
+  path: '/sign-in/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SharewithmeIndexRoute = SharewithmeIndexRouteImport.update({
+  id: '/sharewithme/',
+  path: '/sharewithme/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyipixIndexRoute = MyipixIndexRouteImport.update({
+  id: '/myipix/',
+  path: '/myipix/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
   id: '/demo/tanstack-query',
   path: '/demo/tanstack-query',
@@ -47,11 +64,6 @@ const DemoTableRoute = DemoTableRouteImport.update({
 const DemoStoreRoute = DemoStoreRouteImport.update({
   id: '/demo/store',
   path: '/demo/store',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStartServerFuncsRoute = DemoStartServerFuncsRouteImport.update({
-  id: '/demo/start/server-funcs',
-  path: '/demo/start/server-funcs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoStartApiRequestRoute = DemoStartApiRequestRouteImport.update({
@@ -81,10 +93,12 @@ export interface FileRoutesByFullPath {
   '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/myipix': typeof MyipixIndexRoute
+  '/sharewithme': typeof SharewithmeIndexRoute
+  '/sign-in': typeof SignInIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
-  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,10 +106,12 @@ export interface FileRoutesByTo {
   '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/myipix': typeof MyipixIndexRoute
+  '/sharewithme': typeof SharewithmeIndexRoute
+  '/sign-in': typeof SignInIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
-  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,10 +120,12 @@ export interface FileRoutesById {
   '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/myipix/': typeof MyipixIndexRoute
+  '/sharewithme/': typeof SharewithmeIndexRoute
+  '/sign-in/': typeof SignInIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
-  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,10 +135,12 @@ export interface FileRouteTypes {
     | '/demo/store'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/myipix'
+    | '/sharewithme'
+    | '/sign-in'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
-    | '/demo/start/server-funcs'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,10 +148,12 @@ export interface FileRouteTypes {
     | '/demo/store'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/myipix'
+    | '/sharewithme'
+    | '/sign-in'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
-    | '/demo/start/server-funcs'
   id:
     | '__root__'
     | '/'
@@ -139,10 +161,12 @@ export interface FileRouteTypes {
     | '/demo/store'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/myipix/'
+    | '/sharewithme/'
+    | '/sign-in/'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
-    | '/demo/start/server-funcs'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -151,10 +175,12 @@ export interface RootRouteChildren {
   DemoStoreRoute: typeof DemoStoreRoute
   DemoTableRoute: typeof DemoTableRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
+  MyipixIndexRoute: typeof MyipixIndexRoute
+  SharewithmeIndexRoute: typeof SharewithmeIndexRoute
+  SignInIndexRoute: typeof SignInIndexRoute
   DemoFormAddressRoute: typeof DemoFormAddressRoute
   DemoFormSimpleRoute: typeof DemoFormSimpleRoute
   DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
-  DemoStartServerFuncsRoute: typeof DemoStartServerFuncsRoute
 }
 export interface FileServerRoutesByFullPath {
   '/api/demo-names': typeof ApiDemoNamesServerRoute
@@ -194,6 +220,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-in/': {
+      id: '/sign-in/'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sharewithme/': {
+      id: '/sharewithme/'
+      path: '/sharewithme'
+      fullPath: '/sharewithme'
+      preLoaderRoute: typeof SharewithmeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/myipix/': {
+      id: '/myipix/'
+      path: '/myipix'
+      fullPath: '/myipix'
+      preLoaderRoute: typeof MyipixIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demo/tanstack-query': {
       id: '/demo/tanstack-query'
       path: '/demo/tanstack-query'
@@ -213,13 +260,6 @@ declare module '@tanstack/react-router' {
       path: '/demo/store'
       fullPath: '/demo/store'
       preLoaderRoute: typeof DemoStoreRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/start/server-funcs': {
-      id: '/demo/start/server-funcs'
-      path: '/demo/start/server-funcs'
-      fullPath: '/demo/start/server-funcs'
-      preLoaderRoute: typeof DemoStartServerFuncsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo/start/api-request': {
@@ -263,10 +303,12 @@ const rootRouteChildren: RootRouteChildren = {
   DemoStoreRoute: DemoStoreRoute,
   DemoTableRoute: DemoTableRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
+  MyipixIndexRoute: MyipixIndexRoute,
+  SharewithmeIndexRoute: SharewithmeIndexRoute,
+  SignInIndexRoute: SignInIndexRoute,
   DemoFormAddressRoute: DemoFormAddressRoute,
   DemoFormSimpleRoute: DemoFormSimpleRoute,
   DemoStartApiRequestRoute: DemoStartApiRequestRoute,
-  DemoStartServerFuncsRoute: DemoStartServerFuncsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
