@@ -20,7 +20,9 @@ export const getSessionServerFn = createServerFn({
 export const signInServerFn = createServerFn({ method: "POST" })
   .validator((provider: string) => provider)
   .handler(async ({ data: provider }) => {
-    const result = await authClient.signIn.social({ provider: provider as any });
+    const result = await authClient.signIn.social({
+      provider: provider as any,
+    });
     return result;
   });
 

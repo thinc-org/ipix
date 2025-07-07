@@ -1,2 +1,2 @@
-export * from './schemas/auth';
-export { authTable } from './schemas/auth';
+export * from "./schemas/auth";
+export { authTable } from "./schemas/auth";

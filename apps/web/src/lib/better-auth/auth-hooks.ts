@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSessionServerFn, signInServerFn, signOutServerFn } from "./auth-server-fns";
+import {
+  getSessionServerFn,
+  signInServerFn,
+  signOutServerFn,
+} from "./auth-server-fns";
 import type { Session } from "./auth-server-fns";
 
 export function useAuth() {

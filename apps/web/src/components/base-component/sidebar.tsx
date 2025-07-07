@@ -18,7 +18,7 @@ export function Sidebar() {
   const [open, setOpen] = useState(true);
 
   const percentage = Math.floor(
-    (user.storageSpaceUsed / user.storageSpaceAll) * 100
+    (user.storageSpaceUsed / user.storageSpaceAll) * 100,
   );
 
   return (
@@ -34,7 +34,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "bg-white dark:bg-neutral-800 border-r shadow-sm transition-all  h-full overflow-y-auto",
-          open ? "w-[80vw] md:w-[20vw]" : "w-0"
+          open ? "w-[80vw] md:w-[20vw]" : "w-0",
         )}
       >
         {open && (

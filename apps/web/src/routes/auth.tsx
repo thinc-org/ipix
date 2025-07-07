@@ -1,14 +1,15 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useAuth } from '../lib/better-auth/auth-hooks';
-import { authClient } from '../lib/better-auth/auth-client';
-import { useEffect, useState } from 'react';
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "../lib/better-auth/auth-hooks";
+import { authClient } from "../lib/better-auth/auth-client";
+import { useEffect, useState } from "react";
 
-export const Route = createFileRoute('/auth')({
+export const Route = createFileRoute("/auth")({
   component: AuthComponent,
 });
 
 function AuthComponent() {
-  const { session, refetch, signIn, signOut, isSigningIn, isSigningOut } = useAuth();
+  const { session, refetch, signIn, signOut, isSigningIn, isSigningOut } =
+    useAuth();
   const navigate = useNavigate();
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
 
@@ -17,41 +18,48 @@ function AuthComponent() {
     const handleCallback = async () => {
       try {
         const urlParams = new URLSearchParams(window.location.search);
-        const hasOAuthParams = urlParams.has('code') || urlParams.has('state') || urlParams.has('error');
-        
+        const hasOAuthParams =
+          urlParams.has("code") ||
+          urlParams.has("state") ||
+          urlParams.has("error");
+
         if (hasOAuthParams) {
           setIsProcessingCallback(true);
-          console.log('Processing OAuth callback...');
-          
+          console.log("Processing OAuth callback...");
+
           // Check for errors first
-          const error = urlParams.get('error');
+          const error = urlParams.get("error");
           if (error) {
-            console.error('OAuth error:', error);
+            console.error("OAuth error:", error);
             setIsProcessingCallback(false);
             return;
           }
 
           // Wait a bit for the backend to process the callback and set cookies
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
           // Try to get the session
           const sessionResult = await authClient.getSession();
-          console.log('Session after callback:', sessionResult);
-          
+          console.log("Session after callback:", sessionResult);
+
           // Refetch to update the UI
           await refetch();
-          
+
           // Clean up URL and redirect to home or dashboard
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
           setIsProcessingCallback(false);
-          
+
           // If we have a session, redirect to home
           if (sessionResult.data) {
-            navigate({ to: '/' });
+            navigate({ to: "/" });
           }
         }
       } catch (error) {
-        console.error('OAuth callback error:', error);
+        console.error("OAuth callback error:", error);
         setIsProcessingCallback(false);
       }
     };
@@ -60,7 +68,7 @@ function AuthComponent() {
   }, [refetch, navigate]);
 
   const handleSignIn = async () => {
-    signIn('github');
+    signIn("github");
   };
 
   const handleSignOut = async () => {
@@ -80,21 +88,21 @@ function AuthComponent() {
         ) : session ? (
           <div>
             <p>Welcome, {session.user?.email}</p>
-            <button 
-              onClick={handleSignOut} 
+            <button
+              onClick={handleSignOut}
               disabled={isSigningOut}
               className="mt-2 px-4 py-2 bg-red-500 text-white rounded disabled:opacity-50"
             >
-              {isSigningOut ? 'Signing Out...' : 'Sign Out'}
+              {isSigningOut ? "Signing Out..." : "Sign Out"}
             </button>
           </div>
         ) : (
-          <button 
-            onClick={handleSignIn} 
+          <button
+            onClick={handleSignIn}
             disabled={isSigningIn}
             className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
           >
-            {isSigningIn ? 'Signing In...' : 'Sign In with GitHub'}
+            {isSigningIn ? "Signing In..." : "Sign In with GitHub"}
           </button>
         )}
       </div>

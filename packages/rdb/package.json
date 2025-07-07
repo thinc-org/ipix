@@ -18,13 +18,13 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.44.2",
-    "drizzle-typebox": "catalog:",
+    "drizzle-typebox": "^0.3.3",
     "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/pg": "^8.15.4",
-    "bun-types": "catalog:",
+    "bun-types": "latest",
     "drizzle-kit": "^0.31.4",
-    "tsx": "catalog:"
+    "tsx": "^4.20.3"
   }
 }

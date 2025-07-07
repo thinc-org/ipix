@@ -1,9 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/myipix/')({
+export const Route = createFileRoute("/myipix/")({
   component: RouteComponent,
-})
+});
 
 function RouteComponent() {
-  return <div>Hello "/myipix/"!</div>
+  return <div>Hello "/myipix/"!</div>;
 }

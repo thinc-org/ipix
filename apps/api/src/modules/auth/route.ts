@@ -25,15 +25,18 @@ export const auth = betterAuth({
       maxAge: 60 * 60 * 24 * 7, // 7 days
     },
   },
-  database: drizzleAdapter(createDb({
-    databaseUrl: process.env.DATABASE_URL,
-  }), {
-    provider: "pg",
-    schema: authTable,
-  }),
-  	emailAndPassword: {
-		enabled: true,
-	},
+  database: drizzleAdapter(
+    createDb({
+      databaseUrl: process.env.DATABASE_URL,
+    }),
+    {
+      provider: "pg",
+      schema: authTable,
+    },
+  ),
+  emailAndPassword: {
+    enabled: true,
+  },
   socialProviders: {
     discord: {
       enabled: true,
@@ -79,22 +82,22 @@ export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
   .all("/api/auth/*", async (context: Context) => {
     if (["POST", "GET"].includes(context.request.method)) {
       const response = await auth.handler(context.request);
-      
+
       // If it's a redirect response, make sure to return it properly
       if (response && response.status >= 300 && response.status < 400) {
-        const location = response.headers.get('Location');
+        const location = response.headers.get("Location");
         if (location) {
-          console.log('Redirecting to:', location);
+          console.log("Redirecting to:", location);
           return new Response(null, {
             status: response.status,
             headers: {
-              'Location': location,
-              'Set-Cookie': response.headers.get('Set-Cookie') || '',
-            }
+              Location: location,
+              "Set-Cookie": response.headers.get("Set-Cookie") || "",
+            },
           });
         }
       }
-      
+
       return response;
     }
 
