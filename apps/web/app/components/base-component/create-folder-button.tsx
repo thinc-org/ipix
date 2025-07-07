@@ -34,11 +34,18 @@ export function CreateFolderButton() {
             className="gap-10 p-2 rounded-md border-[0.5px] border-black mt-8"
           />
         </DialogHeader>
-        <div className="flex justify-end space-x-2 mt-4">
+        <div className="flex justify-end space-x-2 mt-4 gap-4">
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <button className="bg-transparent text-black/50 text-sm">
+              Cancel
+            </button>
           </DialogClose>
-          <Button onClick={createFolder}>Create</Button>
+          <button
+            className="bg-transparent text-blue-500 text-sm"
+            onClick={createFolder}
+          >
+            Create
+          </button>
         </div>
       </DialogContent>
     </Dialog>
