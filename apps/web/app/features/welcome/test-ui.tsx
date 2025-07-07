@@ -34,6 +34,8 @@ import { Folder } from "~/components/base-component/folder";
 import { DisplayFile } from "~/components/base-component/display-file";
 import { Sidebar } from "~/components/base-component/sidebar";
 import { CreateFolderButton } from "~/components/base-component";
+import { RenameFolderButton } from "~/components/base-component/rename-folder-button";
+import { DeleteFolderButton } from "~/components/base-component/delete-folder-button";
 
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
@@ -44,7 +46,7 @@ export function TestUi() {
     <div className="min-h-screen bg-background relative">
       {/* Header Component */}
       <Header />
-      <Sidebar />
+      {/* <Sidebar /> */}
 
       <div className="container absolute mx-auto p-8 space-y-8 w-full top-[10vh] right-0 ">
         <div className="text-center mb-8">
@@ -63,6 +65,8 @@ export function TestUi() {
           uploadDate={new Date()}
         />
         <CreateFolderButton />
+        <RenameFolderButton />
+        <DeleteFolderButton />
 
         {/* Button Variants Section */}
         <Card>

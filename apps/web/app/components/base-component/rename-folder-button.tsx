@@ -12,7 +12,7 @@ import {
 export function RenameFolderButton({ className }: { className?: string }) {
   const inputNewFolderName = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
-  const createFolder = () => {
+  const renameFolder = () => {
     const newFolderName = inputNewFolderName.current?.value || "";
     if (newFolderName) {
       console.log(`Folder Name: ${newFolderName}`);
@@ -22,7 +22,11 @@ export function RenameFolderButton({ className }: { className?: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className={className}>Rename</Button>
+        {className ? (
+          <button className={className}>Rename</button>
+        ) : (
+          <Button>Rename</Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -41,7 +45,7 @@ export function RenameFolderButton({ className }: { className?: string }) {
           </DialogClose>
           <button
             className="bg-transparent text-blue-500 text-sm"
-            onClick={createFolder}
+            onClick={renameFolder}
           >
             Save
           </button>

@@ -20,9 +20,11 @@ export function DeleteFolderButton({ className }: { className?: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button {...(className ? { className } : { variant: "destructive" })}>
-          Delete
-        </Button>
+        {className ? (
+          <button className={className}>Delete</button>
+        ) : (
+          <Button variant="destructive">Delete</Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
