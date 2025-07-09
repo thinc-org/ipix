@@ -1,6 +1,7 @@
 import type { Route } from "./+types/home";
-import { Welcome } from "../features/welcome";
+import { Welcome } from "~/features/welcome/welcome";
 import { TestUi } from "../features/welcome";
+import { TestDialog } from "~/features/welcome/test-dialog";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -12,7 +13,8 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   return (
     <>
-      <Welcome /> <TestUi />
+      <TestDialog />
+      <TestUi />
     </>
   );
 }
