@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { RenameFolderButton } from "./rename-folder-button";
 import { DeleteFolderButton } from "./";
-import { Link } from "react-router";
+import { Link } from "@tanstack/react-router";
 import { useOnClickOutside } from "usehooks-ts";
 
 export function Folder({

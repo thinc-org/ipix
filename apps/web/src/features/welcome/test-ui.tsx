@@ -49,7 +49,8 @@ export function TestUi() {
       <Header />
       <Sidebar />
 
-      <div className="container absolute mx-auto p-8 space-y-8 w-full top-[10vh] right-0 ">
+      {/* TODO - remove the hard-coded 80vw (when sidebar is collpased ?) */}
+      <div className="container absolute mx-auto p-8 space-y-8 w-[80vw] top-[10vh] right-0 ">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2">
             shadcn/ui Components Testing

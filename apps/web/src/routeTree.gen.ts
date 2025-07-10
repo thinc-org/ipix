@@ -8,292 +8,312 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { createServerRootRoute } from "@tanstack/react-start/server";
+import { createServerRootRoute } from '@tanstack/react-start/server'
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as AuthRouteImport } from "./routes/auth";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as SignInIndexRouteImport } from "./routes/sign-in/index";
-import { Route as SharewithmeIndexRouteImport } from "./routes/sharewithme/index";
-import { Route as MyipixIndexRouteImport } from "./routes/myipix/index";
-import { Route as DemoTanstackQueryRouteImport } from "./routes/demo.tanstack-query";
-import { Route as DemoTableRouteImport } from "./routes/demo.table";
-import { Route as DemoStoreRouteImport } from "./routes/demo.store";
-import { Route as DemoStartApiRequestRouteImport } from "./routes/demo.start.api-request";
-import { Route as DemoFormSimpleRouteImport } from "./routes/demo.form.simple";
-import { Route as DemoFormAddressRouteImport } from "./routes/demo.form.address";
-import { ServerRoute as ApiDemoNamesServerRouteImport } from "./routes/api.demo-names";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
+import { Route as SharewithmeIndexRouteImport } from './routes/sharewithme/index'
+import { Route as MyipixIndexRouteImport } from './routes/myipix/index'
+import { Route as DemoTanstackQueryRouteImport } from './routes/demo.tanstack-query'
+import { Route as DemoTableRouteImport } from './routes/demo.table'
+import { Route as DemoStoreRouteImport } from './routes/demo.store'
+import { Route as DemoStartServerFuncsRouteImport } from './routes/demo.start.server-funcs'
+import { Route as DemoStartApiRequestRouteImport } from './routes/demo.start.api-request'
+import { Route as DemoFormSimpleRouteImport } from './routes/demo.form.simple'
+import { Route as DemoFormAddressRouteImport } from './routes/demo.form.address'
+import { ServerRoute as ApiDemoNamesServerRouteImport } from './routes/api.demo-names'
 
-const rootServerRouteImport = createServerRootRoute();
+const rootServerRouteImport = createServerRootRoute()
 
 const AuthRoute = AuthRouteImport.update({
-  id: "/auth",
-  path: "/auth",
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const SignInIndexRoute = SignInIndexRouteImport.update({
-  id: "/sign-in/",
-  path: "/sign-in/",
+  id: '/sign-in/',
+  path: '/sign-in/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const SharewithmeIndexRoute = SharewithmeIndexRouteImport.update({
-  id: "/sharewithme/",
-  path: "/sharewithme/",
+  id: '/sharewithme/',
+  path: '/sharewithme/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const MyipixIndexRoute = MyipixIndexRouteImport.update({
-  id: "/myipix/",
-  path: "/myipix/",
+  id: '/myipix/',
+  path: '/myipix/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
-  id: "/demo/tanstack-query",
-  path: "/demo/tanstack-query",
+  id: '/demo/tanstack-query',
+  path: '/demo/tanstack-query',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const DemoTableRoute = DemoTableRouteImport.update({
-  id: "/demo/table",
-  path: "/demo/table",
+  id: '/demo/table',
+  path: '/demo/table',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const DemoStoreRoute = DemoStoreRouteImport.update({
-  id: "/demo/store",
-  path: "/demo/store",
+  id: '/demo/store',
+  path: '/demo/store',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const DemoStartServerFuncsRoute = DemoStartServerFuncsRouteImport.update({
+  id: '/demo/start/server-funcs',
+  path: '/demo/start/server-funcs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemoStartApiRequestRoute = DemoStartApiRequestRouteImport.update({
-  id: "/demo/start/api-request",
-  path: "/demo/start/api-request",
+  id: '/demo/start/api-request',
+  path: '/demo/start/api-request',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const DemoFormSimpleRoute = DemoFormSimpleRouteImport.update({
-  id: "/demo/form/simple",
-  path: "/demo/form/simple",
+  id: '/demo/form/simple',
+  path: '/demo/form/simple',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const DemoFormAddressRoute = DemoFormAddressRouteImport.update({
-  id: "/demo/form/address",
-  path: "/demo/form/address",
+  id: '/demo/form/address',
+  path: '/demo/form/address',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiDemoNamesServerRoute = ApiDemoNamesServerRouteImport.update({
-  id: "/api/demo-names",
-  path: "/api/demo-names",
+  id: '/api/demo-names',
+  path: '/api/demo-names',
   getParentRoute: () => rootServerRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/auth": typeof AuthRoute;
-  "/demo/store": typeof DemoStoreRoute;
-  "/demo/table": typeof DemoTableRoute;
-  "/demo/tanstack-query": typeof DemoTanstackQueryRoute;
-  "/myipix": typeof MyipixIndexRoute;
-  "/sharewithme": typeof SharewithmeIndexRoute;
-  "/sign-in": typeof SignInIndexRoute;
-  "/demo/form/address": typeof DemoFormAddressRoute;
-  "/demo/form/simple": typeof DemoFormSimpleRoute;
-  "/demo/start/api-request": typeof DemoStartApiRequestRoute;
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/demo/store': typeof DemoStoreRoute
+  '/demo/table': typeof DemoTableRoute
+  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/myipix': typeof MyipixIndexRoute
+  '/sharewithme': typeof SharewithmeIndexRoute
+  '/sign-in': typeof SignInIndexRoute
+  '/demo/form/address': typeof DemoFormAddressRoute
+  '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/demo/start/api-request': typeof DemoStartApiRequestRoute
+  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/auth": typeof AuthRoute;
-  "/demo/store": typeof DemoStoreRoute;
-  "/demo/table": typeof DemoTableRoute;
-  "/demo/tanstack-query": typeof DemoTanstackQueryRoute;
-  "/myipix": typeof MyipixIndexRoute;
-  "/sharewithme": typeof SharewithmeIndexRoute;
-  "/sign-in": typeof SignInIndexRoute;
-  "/demo/form/address": typeof DemoFormAddressRoute;
-  "/demo/form/simple": typeof DemoFormSimpleRoute;
-  "/demo/start/api-request": typeof DemoStartApiRequestRoute;
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/demo/store': typeof DemoStoreRoute
+  '/demo/table': typeof DemoTableRoute
+  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/myipix': typeof MyipixIndexRoute
+  '/sharewithme': typeof SharewithmeIndexRoute
+  '/sign-in': typeof SignInIndexRoute
+  '/demo/form/address': typeof DemoFormAddressRoute
+  '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/demo/start/api-request': typeof DemoStartApiRequestRoute
+  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/auth": typeof AuthRoute;
-  "/demo/store": typeof DemoStoreRoute;
-  "/demo/table": typeof DemoTableRoute;
-  "/demo/tanstack-query": typeof DemoTanstackQueryRoute;
-  "/myipix/": typeof MyipixIndexRoute;
-  "/sharewithme/": typeof SharewithmeIndexRoute;
-  "/sign-in/": typeof SignInIndexRoute;
-  "/demo/form/address": typeof DemoFormAddressRoute;
-  "/demo/form/simple": typeof DemoFormSimpleRoute;
-  "/demo/start/api-request": typeof DemoStartApiRequestRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/demo/store': typeof DemoStoreRoute
+  '/demo/table': typeof DemoTableRoute
+  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/myipix/': typeof MyipixIndexRoute
+  '/sharewithme/': typeof SharewithmeIndexRoute
+  '/sign-in/': typeof SignInIndexRoute
+  '/demo/form/address': typeof DemoFormAddressRoute
+  '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/demo/start/api-request': typeof DemoStartApiRequestRoute
+  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/auth"
-    | "/demo/store"
-    | "/demo/table"
-    | "/demo/tanstack-query"
-    | "/myipix"
-    | "/sharewithme"
-    | "/sign-in"
-    | "/demo/form/address"
-    | "/demo/form/simple"
-    | "/demo/start/api-request";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/auth'
+    | '/demo/store'
+    | '/demo/table'
+    | '/demo/tanstack-query'
+    | '/myipix'
+    | '/sharewithme'
+    | '/sign-in'
+    | '/demo/form/address'
+    | '/demo/form/simple'
+    | '/demo/start/api-request'
+    | '/demo/start/server-funcs'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/auth"
-    | "/demo/store"
-    | "/demo/table"
-    | "/demo/tanstack-query"
-    | "/myipix"
-    | "/sharewithme"
-    | "/sign-in"
-    | "/demo/form/address"
-    | "/demo/form/simple"
-    | "/demo/start/api-request";
+    | '/'
+    | '/auth'
+    | '/demo/store'
+    | '/demo/table'
+    | '/demo/tanstack-query'
+    | '/myipix'
+    | '/sharewithme'
+    | '/sign-in'
+    | '/demo/form/address'
+    | '/demo/form/simple'
+    | '/demo/start/api-request'
+    | '/demo/start/server-funcs'
   id:
-    | "__root__"
-    | "/"
-    | "/auth"
-    | "/demo/store"
-    | "/demo/table"
-    | "/demo/tanstack-query"
-    | "/myipix/"
-    | "/sharewithme/"
-    | "/sign-in/"
-    | "/demo/form/address"
-    | "/demo/form/simple"
-    | "/demo/start/api-request";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/demo/store'
+    | '/demo/table'
+    | '/demo/tanstack-query'
+    | '/myipix/'
+    | '/sharewithme/'
+    | '/sign-in/'
+    | '/demo/form/address'
+    | '/demo/form/simple'
+    | '/demo/start/api-request'
+    | '/demo/start/server-funcs'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AuthRoute: typeof AuthRoute;
-  DemoStoreRoute: typeof DemoStoreRoute;
-  DemoTableRoute: typeof DemoTableRoute;
-  DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute;
-  MyipixIndexRoute: typeof MyipixIndexRoute;
-  SharewithmeIndexRoute: typeof SharewithmeIndexRoute;
-  SignInIndexRoute: typeof SignInIndexRoute;
-  DemoFormAddressRoute: typeof DemoFormAddressRoute;
-  DemoFormSimpleRoute: typeof DemoFormSimpleRoute;
-  DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute;
+  IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  DemoStoreRoute: typeof DemoStoreRoute
+  DemoTableRoute: typeof DemoTableRoute
+  DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
+  MyipixIndexRoute: typeof MyipixIndexRoute
+  SharewithmeIndexRoute: typeof SharewithmeIndexRoute
+  SignInIndexRoute: typeof SignInIndexRoute
+  DemoFormAddressRoute: typeof DemoFormAddressRoute
+  DemoFormSimpleRoute: typeof DemoFormSimpleRoute
+  DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
+  DemoStartServerFuncsRoute: typeof DemoStartServerFuncsRoute
 }
 export interface FileServerRoutesByFullPath {
-  "/api/demo-names": typeof ApiDemoNamesServerRoute;
+  '/api/demo-names': typeof ApiDemoNamesServerRoute
 }
 export interface FileServerRoutesByTo {
-  "/api/demo-names": typeof ApiDemoNamesServerRoute;
+  '/api/demo-names': typeof ApiDemoNamesServerRoute
 }
 export interface FileServerRoutesById {
-  __root__: typeof rootServerRouteImport;
-  "/api/demo-names": typeof ApiDemoNamesServerRoute;
+  __root__: typeof rootServerRouteImport
+  '/api/demo-names': typeof ApiDemoNamesServerRoute
 }
 export interface FileServerRouteTypes {
-  fileServerRoutesByFullPath: FileServerRoutesByFullPath;
-  fullPaths: "/api/demo-names";
-  fileServerRoutesByTo: FileServerRoutesByTo;
-  to: "/api/demo-names";
-  id: "__root__" | "/api/demo-names";
-  fileServerRoutesById: FileServerRoutesById;
+  fileServerRoutesByFullPath: FileServerRoutesByFullPath
+  fullPaths: '/api/demo-names'
+  fileServerRoutesByTo: FileServerRoutesByTo
+  to: '/api/demo-names'
+  id: '__root__' | '/api/demo-names'
+  fileServerRoutesById: FileServerRoutesById
 }
 export interface RootServerRouteChildren {
-  ApiDemoNamesServerRoute: typeof ApiDemoNamesServerRoute;
+  ApiDemoNamesServerRoute: typeof ApiDemoNamesServerRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/auth": {
-      id: "/auth";
-      path: "/auth";
-      fullPath: "/auth";
-      preLoaderRoute: typeof AuthRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/sign-in/": {
-      id: "/sign-in/";
-      path: "/sign-in";
-      fullPath: "/sign-in";
-      preLoaderRoute: typeof SignInIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/sharewithme/": {
-      id: "/sharewithme/";
-      path: "/sharewithme";
-      fullPath: "/sharewithme";
-      preLoaderRoute: typeof SharewithmeIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/myipix/": {
-      id: "/myipix/";
-      path: "/myipix";
-      fullPath: "/myipix";
-      preLoaderRoute: typeof MyipixIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/demo/tanstack-query": {
-      id: "/demo/tanstack-query";
-      path: "/demo/tanstack-query";
-      fullPath: "/demo/tanstack-query";
-      preLoaderRoute: typeof DemoTanstackQueryRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/demo/table": {
-      id: "/demo/table";
-      path: "/demo/table";
-      fullPath: "/demo/table";
-      preLoaderRoute: typeof DemoTableRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/demo/store": {
-      id: "/demo/store";
-      path: "/demo/store";
-      fullPath: "/demo/store";
-      preLoaderRoute: typeof DemoStoreRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/demo/start/api-request": {
-      id: "/demo/start/api-request";
-      path: "/demo/start/api-request";
-      fullPath: "/demo/start/api-request";
-      preLoaderRoute: typeof DemoStartApiRequestRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/demo/form/simple": {
-      id: "/demo/form/simple";
-      path: "/demo/form/simple";
-      fullPath: "/demo/form/simple";
-      preLoaderRoute: typeof DemoFormSimpleRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/demo/form/address": {
-      id: "/demo/form/address";
-      path: "/demo/form/address";
-      fullPath: "/demo/form/address";
-      preLoaderRoute: typeof DemoFormAddressRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in/': {
+      id: '/sign-in/'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sharewithme/': {
+      id: '/sharewithme/'
+      path: '/sharewithme'
+      fullPath: '/sharewithme'
+      preLoaderRoute: typeof SharewithmeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/myipix/': {
+      id: '/myipix/'
+      path: '/myipix'
+      fullPath: '/myipix'
+      preLoaderRoute: typeof MyipixIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/tanstack-query': {
+      id: '/demo/tanstack-query'
+      path: '/demo/tanstack-query'
+      fullPath: '/demo/tanstack-query'
+      preLoaderRoute: typeof DemoTanstackQueryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/table': {
+      id: '/demo/table'
+      path: '/demo/table'
+      fullPath: '/demo/table'
+      preLoaderRoute: typeof DemoTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/store': {
+      id: '/demo/store'
+      path: '/demo/store'
+      fullPath: '/demo/store'
+      preLoaderRoute: typeof DemoStoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/start/server-funcs': {
+      id: '/demo/start/server-funcs'
+      path: '/demo/start/server-funcs'
+      fullPath: '/demo/start/server-funcs'
+      preLoaderRoute: typeof DemoStartServerFuncsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/start/api-request': {
+      id: '/demo/start/api-request'
+      path: '/demo/start/api-request'
+      fullPath: '/demo/start/api-request'
+      preLoaderRoute: typeof DemoStartApiRequestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/form/simple': {
+      id: '/demo/form/simple'
+      path: '/demo/form/simple'
+      fullPath: '/demo/form/simple'
+      preLoaderRoute: typeof DemoFormSimpleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/form/address': {
+      id: '/demo/form/address'
+      path: '/demo/form/address'
+      fullPath: '/demo/form/address'
+      preLoaderRoute: typeof DemoFormAddressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
-declare module "@tanstack/react-start/server" {
+declare module '@tanstack/react-start/server' {
   interface ServerFileRoutesByPath {
-    "/api/demo-names": {
-      id: "/api/demo-names";
-      path: "/api/demo-names";
-      fullPath: "/api/demo-names";
-      preLoaderRoute: typeof ApiDemoNamesServerRouteImport;
-      parentRoute: typeof rootServerRouteImport;
-    };
+    '/api/demo-names': {
+      id: '/api/demo-names'
+      path: '/api/demo-names'
+      fullPath: '/api/demo-names'
+      preLoaderRoute: typeof ApiDemoNamesServerRouteImport
+      parentRoute: typeof rootServerRouteImport
+    }
   }
 }
 
@@ -309,13 +329,14 @@ const rootRouteChildren: RootRouteChildren = {
   DemoFormAddressRoute: DemoFormAddressRoute,
   DemoFormSimpleRoute: DemoFormSimpleRoute,
   DemoStartApiRequestRoute: DemoStartApiRequestRoute,
-};
+  DemoStartServerFuncsRoute: DemoStartServerFuncsRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 const rootServerRouteChildren: RootServerRouteChildren = {
   ApiDemoNamesServerRoute: ApiDemoNamesServerRoute,
-};
+}
 export const serverRouteTree = rootServerRouteImport
   ._addFileChildren(rootServerRouteChildren)
-  ._addFileTypes<FileServerRouteTypes>();
+  ._addFileTypes<FileServerRouteTypes>()
