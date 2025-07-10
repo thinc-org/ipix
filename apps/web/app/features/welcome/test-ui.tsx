@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { AlertCircle, Info, CheckCircle, Heart } from "lucide-react";
-import { Header } from "~/components/base_component/header";
+import { Header } from "~/components/base-component/header";
 
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
