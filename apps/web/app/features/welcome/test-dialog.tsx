@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
-import { Header } from "~/components/base_component/header";
+import { Header } from "~/components/base-component/header";
 import { DialogRename } from "../folder/dialog-rename";
 
 export function TestDialog() {
