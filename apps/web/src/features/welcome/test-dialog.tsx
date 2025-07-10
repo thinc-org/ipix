@@ -1,13 +1,3 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Card,
   CardContent,
@@ -18,6 +8,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Header } from "@/components/base-component/header";
 import { DialogRename } from "../folder/dialog-rename";
+import { DialogShare } from "../folder/dialog-share";
 
 export function TestDialog() {
   return (
@@ -42,6 +33,7 @@ export function TestDialog() {
             <div className="space-y-2">
               <Label>Default Folder Action</Label>
               <DialogRename />
+              <DialogShare />
             </div>
           </CardContent>
         </Card>
