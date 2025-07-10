@@ -9,20 +9,61 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
+import { ShareUserItem } from "./list-share-email";
 
 export function DialogShare() {
   const folder_name = "ค่ายวิษณุกรรมบุตร ครั้งที่ 22";
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
+  const [mockUsers, setMockData] = useState([
+    {
+      email: "Anyone with the link",
+      role: "can view",
+      userType: "everyone",
+      profile_link: "https://i.pravatar.cc/150?u=anyone",
+    },
+    {
+      email: "thinc.co@gmail.com",
+      role: "owner",
+      userType: "owner",
+      profile_link: "https://i.pravatar.cc/150?u=thinc.co@gmail.com",
+    },
+    {
+      email: "member1@gmail.com",
+      role: "can edit",
+      userType: "people",
+      profile_link: "https://i.pravatar.cc/150?u=member1@gmail.com",
+    },
+    {
+      email: "member2@gmail.com",
+      role: "can edit",
+      userType: "people",
+      profile_link: "https://i.pravatar.cc/150?u=member2@gmail.com",
+    },
+    {
+      email: "member3@gmail.com",
+      role: "can edit",
+      userType: "people",
+      profile_link: "https://i.pravatar.cc/150?u=member3@gmail.com",
+    },
+    {
+      email: "member4@gmail.com",
+      role: "can edit",
+      userType: "people",
+      profile_link: "https://i.pravatar.cc/150?u=member4@gmail.com",
+    },
+    {
+      email: "member5@gmail.com",
+      role: "can edit",
+      userType: "people",
+      profile_link: "https://i.pravatar.cc/150?u=member5@gmail.com",
+    },
+  ]);
 
-  const handleCancel = () => {
-    setInputValue("");
-    setOpen(false);
-  };
-
-  const handleSubmit = () => {
-    console.log("Input data:", inputValue);
-    setOpen(false);
+  const handleRoleChange = (index: number, newRole: any) => {
+    const updated = [...mockUsers];
+    updated[index].role = newRole;
+    setMockData(updated);
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -61,7 +102,18 @@ export function DialogShare() {
         </div>
 
         <p className="text-gray-600 text-sm">Who can access</p>
-        <div className="flex justify-end space-x-2 mt-4"></div>
+        <div className="space-y-2 p-4">
+          {mockUsers.map((user, i) => (
+            <ShareUserItem
+              key={user.email}
+              email={user.email}
+              profile_link={user.profile_link}
+              role={user.role as any}
+              userType={user.userType as any}
+              onChangeRole={(role) => handleRoleChange(i, role)}
+            />
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );
