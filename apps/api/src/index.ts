@@ -7,6 +7,7 @@ import {
   betterAuthMiddleware,
   betterAuthOpenAPI,
 } from "./modules/auth/route.js";
+import { image } from "./modules/image/route.js";
 
 const app = new Elysia()
   .use(betterAuthMiddleware)
@@ -21,7 +22,7 @@ const app = new Elysia()
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
-    }),
+    })
   )
   .use(
     swagger({
@@ -29,11 +30,12 @@ const app = new Elysia()
         components: await betterAuthOpenAPI.components,
         paths: await betterAuthOpenAPI.getPaths(),
       },
-    }),
+    })
   )
+  .use(image)
   .get("/", () => "Hello Elysia")
   .listen(20257);
 
 console.log(
-  `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`,
+  `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`
 );
