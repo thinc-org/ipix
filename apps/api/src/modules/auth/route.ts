@@ -17,7 +17,11 @@ export const auth = betterAuth({
       enabled: true,
       url: "http://localhost:3000/auth?callback=true", // Add a query param to identify callback
     },
-    generateId: () => crypto.randomUUID(),
+    database: {
+      generateId: (options: {}) => {
+        return crypto.randomUUID();
+      },
+    },
   },
   session: {
     cookieCache: {
@@ -32,7 +36,7 @@ export const auth = betterAuth({
     {
       provider: "pg",
       schema: authTable,
-    },
+    }
   ),
   emailAndPassword: {
     enabled: true,
@@ -103,7 +107,7 @@ export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
 
     context.status(405);
   })
-
+  .mount(auth.handler)
   .macro({
     auth: {
       async resolve({ status, request: { headers } }) {
