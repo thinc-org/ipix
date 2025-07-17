@@ -10,7 +10,8 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.844.0"
+    "@aws-sdk/client-s3": "^3.844.0",
+    "@aws-sdk/client-sts": "^3.844.0"
   },
   "exports": {
     ".": "./index.ts"
