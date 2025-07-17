@@ -13,6 +13,7 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UploadIndexRouteImport } from './routes/upload/index'
 import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
 import { Route as SharewithmeIndexRouteImport } from './routes/sharewithme/index'
 import { Route as MyipixIndexRouteImport } from './routes/myipix/index'
@@ -35,6 +36,11 @@ const AuthRoute = AuthRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UploadIndexRoute = UploadIndexRouteImport.update({
+  id: '/upload/',
+  path: '/upload/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInIndexRoute = SignInIndexRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/myipix': typeof MyipixIndexRoute
   '/sharewithme': typeof SharewithmeIndexRoute
   '/sign-in': typeof SignInIndexRoute
+  '/upload': typeof UploadIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/myipix': typeof MyipixIndexRoute
   '/sharewithme': typeof SharewithmeIndexRoute
   '/sign-in': typeof SignInIndexRoute
+  '/upload': typeof UploadIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/myipix/': typeof MyipixIndexRoute
   '/sharewithme/': typeof SharewithmeIndexRoute
   '/sign-in/': typeof SignInIndexRoute
+  '/upload/': typeof UploadIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/myipix'
     | '/sharewithme'
     | '/sign-in'
+    | '/upload'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/myipix'
     | '/sharewithme'
     | '/sign-in'
+    | '/upload'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/myipix/'
     | '/sharewithme/'
     | '/sign-in/'
+    | '/upload/'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
@@ -190,6 +202,7 @@ export interface RootRouteChildren {
   MyipixIndexRoute: typeof MyipixIndexRoute
   SharewithmeIndexRoute: typeof SharewithmeIndexRoute
   SignInIndexRoute: typeof SignInIndexRoute
+  UploadIndexRoute: typeof UploadIndexRoute
   DemoFormAddressRoute: typeof DemoFormAddressRoute
   DemoFormSimpleRoute: typeof DemoFormSimpleRoute
   DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/upload/': {
+      id: '/upload/'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof UploadIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in/': {
@@ -326,6 +346,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyipixIndexRoute: MyipixIndexRoute,
   SharewithmeIndexRoute: SharewithmeIndexRoute,
   SignInIndexRoute: SignInIndexRoute,
+  UploadIndexRoute: UploadIndexRoute,
   DemoFormAddressRoute: DemoFormAddressRoute,
   DemoFormSimpleRoute: DemoFormSimpleRoute,
   DemoStartApiRequestRoute: DemoStartApiRequestRoute,
