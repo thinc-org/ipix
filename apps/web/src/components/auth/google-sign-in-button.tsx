@@ -29,8 +29,7 @@ export function GoogleSignInButton({
   ...props
 }: GoogleSignInButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { session, refetch, signIn, signOut, isSigningIn, isSigningOut } =
-    useAuth();
+  const { session, refetch, signIn, signOut } = useAuth();
   const navigate = useNavigate();
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
 
@@ -112,7 +111,7 @@ export function GoogleSignInButton({
       <Button
         onClick={session ? handleSignOut : handleSignIn}
         disabled={isLoading}
-        variant={isLoading ? "secondary" : "outline"}
+        variant={isLoading ? "secondary" : session ? "destructive" : "outline"}
         className={cn(googleButtonVariants({ loading: isLoading }), className)}
         {...props}
       >
@@ -124,6 +123,8 @@ export function GoogleSignInButton({
             />
             Loading
           </>
+        ) : session ? (
+          <div className="text-white">Sign out</div>
         ) : (
           <>
             <img src="/base_resource/google_logo.svg" alt="Google logo" />
@@ -131,25 +132,6 @@ export function GoogleSignInButton({
           </>
         )}
       </Button>
-      <div className="p-2">
-        <div className="p-4">
-          {isProcessingCallback ? (
-            <div className="text-center">
-              <p>Processing OAuth callback...</p>
-              <div className="mt-2">Please wait...</div>
-            </div>
-          ) : session ? (
-            <div>
-              <p>Welcome, {session.user?.email}</p>
-            </div>
-          ) : (
-            <></>
-          )}
-        </div>
-        <pre className="mt-4 bg-gray-100 p-4 rounded">
-          {JSON.stringify(session, null, 2)}
-        </pre>
-      </div>
     </>
   );
 }
