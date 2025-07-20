@@ -56,7 +56,12 @@ export function TestUi() {
     <div className="min-h-screen bg-background relative">
       {/* Header Component */}
       <Header />
-      <Sidebar />
+      <Sidebar
+        userInfo={{
+          email: userInfo.email,
+          imageProfile: userInfo.imageProfile,
+        }}
+      />
 
       {/* TODO - remove the hard-coded 80vw (when sidebar is collpased ?) */}
       <div className="container absolute mx-auto p-8 space-y-8 w-[80vw] top-[10vh] right-0 ">
