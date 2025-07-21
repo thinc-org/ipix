@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "@repo/api",
   "version": "1.0.50",
   "module": "src/index.js",
   "dependencies": {
@@ -21,5 +21,8 @@
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest"
+  },
+  "exports": {
+    ".": "./src/index.ts"
   }
 }
