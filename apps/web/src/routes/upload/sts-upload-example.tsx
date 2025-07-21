@@ -3,8 +3,7 @@ import Uppy, { type UppyFile, type Meta, type Body } from "@uppy/core";
 import Dashboard from "@uppy/dashboard";
 import AwsS3, { type AwsS3Part, type AwsS3UploadParameters } from "@uppy/aws-s3";
 import { DashboardModal } from "@uppy/react";
-import { treaty } from "@elysiajs/eden";
-import type { App } from "@repo/api";
+import app from '@/lib/fetch'
 
 // Import Uppy styles
 import "@uppy/core/dist/style.min.css";
@@ -17,7 +16,7 @@ if (!API_BASE_URL) {
   throw new Error('API_BASE_URL is required but not defined')
 }
 
-const app = treaty<App>(API_BASE_URL);
+
 
 export function STSUploadExample() {
   const uppyRef = useRef<Uppy<any> | null>(null);
