@@ -1,28 +1,37 @@
 import React, { useRef, useEffect } from "react";
-import Uppy from "@uppy/core";
+import Uppy, { type UppyFile, type Meta, type Body } from "@uppy/core";
 import Dashboard from "@uppy/dashboard";
-import AwsS3 from "@uppy/aws-s3";
+import AwsS3, { type AwsS3Part, type AwsS3UploadParameters } from "@uppy/aws-s3";
 import { DashboardModal } from "@uppy/react";
-import { authClient } from "@/lib/better-auth/auth-client";
+import { treaty } from "@elysiajs/eden";
+import type { App } from "@repo/api";
 
 // Import Uppy styles
 import "@uppy/core/dist/style.min.css";
 import "@uppy/dashboard/dist/style.min.css";
 
 // API base URL
-const API_BASE_URL = "http://localhost:20257";
+const API_BASE_URL = process.env.API_BASE_URL;
+
+if (!API_BASE_URL) {
+  throw new Error('API_BASE_URL is required but not defined')
+}
+
+const app = treaty<App>(API_BASE_URL);
 
 export function STSUploadExample() {
   const uppyRef = useRef<Uppy<any> | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isUppyReady, setIsUppyReady] = React.useState(false);
-  const [uploadedFiles, setUploadedFiles] = React.useState<Array<{
-    id: string
-    name: string
-    location?: string
-    size: number
-    type: string
-  }>>([])
+  const [uploadedFiles, setUploadedFiles] = React.useState<
+    Array<{
+      id: string;
+      name: string;
+      location?: string;
+      size: number;
+      type: string;
+    }>
+  >([]);
 
   // Initialize Uppy instance with batch-optimized configuration for faculty photos
   useEffect(() => {
@@ -61,154 +70,169 @@ export function STSUploadExample() {
         limit: 20, // Higher concurrency for batch uploads
 
         getChunkSize: (file: any) => {
-          const TEN_MIB = 10 * 1024 * 1024 // Actual minimum is 5 MiB but 10 MiB is used here to reduce overhead, considering Thailand's internet speed.
-          const MAX_CHUNKS = 10000 // per MinIO S3 / AWS S3 Specs
+          const TEN_MIB = 10 * 1024 * 1024; // Actual minimum is 5 MiB but 10 MiB is used here to reduce overhead, considering Thailand's internet speed.
+          const MAX_CHUNKS = 10000; // per MinIO S3 / AWS S3 Specs
 
-          const minRequiredChunkSize = Math.ceil(file.size / MAX_CHUNKS)
+          const minRequiredChunkSize = Math.ceil(file.size / MAX_CHUNKS);
 
-          const chunkSize = Math.max(TEN_MIB, minRequiredChunkSize)
+          const chunkSize = Math.max(TEN_MIB, minRequiredChunkSize);
 
-          return chunkSize
+          return chunkSize;
         },
-        
-        // Batch-optimized upload parameters
-        async getUploadParameters(file: any) {
-          
-          const response = await fetch(`${API_BASE_URL}/s3/batch-sign`, {
-            method: 'POST',
-            credentials: "include",
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              filename: file.name,
-              type: file.type || 'image/jpeg',
-              size: file.size,
-              // Add batch context for faculty photos
-              context: 'faculty-photos',
-              timestamp: new Date().toISOString().slice(0, 10),
-            }),
-          });
 
-          if (!response.ok) {
-            throw new Error(`Failed to get upload parameters: ${response.statusText}`);
+        // Batch-optimized upload parameters
+        async getUploadParameters(file: UppyFile<Meta, Body>) {
+          const {data, error} = await app.s3["batch-sign"].post({
+            filename: file.name!,
+            type: file.type ?? "image/jpeg",
+            size: file.size!,
+            context: "",
+            timestamp: new Date().toISOString().slice(0, 10)
+          },{fetch: {
+            credentials: "include"
+          }})
+
+          if (error || !data) {
+            throw new Error(
+              `Failed to get upload parameters: ${error.value}`
+            );
           }
-          
-          const data = await response.json();
-          
+
           return {
-            method: data.method || 'PUT',
-            url: data.url,
-            fields: data.fields || {},
+            method: data.method ?? "PUT",
+            url: data.url!,
             headers: {
-              'Content-Type': file.type || 'image/jpeg',
-              ...(data.headers || {}),
-            }
-          };
+              "Content-Type": file.type ?? "image/jpeg",
+            },
+          } as AwsS3UploadParameters;
         },
 
         // Batch multipart upload methods (for large files)
-        async createMultipartUpload(file: any) {
-          
-          const response = await fetch(`${API_BASE_URL}/s3/batch-multipart`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              filename: file.name,
-              type: file.type || 'image/jpeg',
-              size: file.size,
-              context: 'faculty-photos',
+        async createMultipartUpload(file: UppyFile<Meta, Body>) {
+          const { data, error } = await app.s3["batch-multipart"].post(
+            {
+              filename: file.name!,
+              type: file.type ?? "image/jpeg",
+              size: file.size!,
+              context: "faculty-photos",
               metadata: {
                 originalName: file.name,
-                uploadedBy: 'faculty-photographer',
+                uploadedBy: "faculty-photographer",
                 batchId: Date.now().toString(),
-                ...file.meta
-              }
-            }),
-          });
+                ...file.meta,
+              },
+            },
+            {
+              fetch: {
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              },
+            }
+          );
 
-          if (!response.ok) {
-            throw new Error(`Failed to create multipart upload: ${response.statusText}`);
+          if (error) {
+            throw new Error(
+              `Failed to create multipart upload: ${error.value}`
+            );
           }
 
-          const data = await response.json();
           return {
-            uploadId: data.uploadId,
-            key: data.key
+            uploadId: data.uploadId!,
+            key: data.key!,
           };
         },
 
-        async listParts(_file: any, opts: any) {
+        async listParts(_file: UppyFile<Meta, Body>, opts: any) {
           const { uploadId, key } = opts;
-          
-          const response = await fetch(`${API_BASE_URL}/s3/batch-multipart/${uploadId}?key=${encodeURIComponent(key)}`, {
-            method: 'GET',
-            credentials: 'include',
+
+          const { data, error } = await app.s3["batch-multipart"]({
+            uploadId: uploadId,
+          }).get({
+            query: { key: key },
+            fetch: {
+              credentials: "include",
+            },
           });
 
-          if (!response.ok) {
-            throw new Error(`Failed to list parts: ${response.statusText}`);
+          if (error) {
+            throw new Error(`Failed to list parts: ${error.value}`);
           }
 
-          return await response.json();
+          return data as AwsS3Part[];
         },
 
-        async signPart(_file: any, opts: any) {
+        async signPart(_file: UppyFile<Meta, Body>, opts: any) {
           const { uploadId, key, partNumber } = opts;
-          const session = await authClient.getSession();
-          
-          const response = await fetch(`${API_BASE_URL}/s3/batch-multipart/${uploadId}/${partNumber}?key=${encodeURIComponent(key)}`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Authorization': `Bearer ${session?.data?.session?.token || ''}`,
+
+          const { data, error } = await app.s3["batch-multipart"]({
+            uploadId: uploadId,
+          })({ partNumber: partNumber }).get({
+            query: { key: key },
+            fetch: {
+              credentials: "include",
             },
           });
 
-          if (!response.ok) {
-            throw new Error(`Failed to sign part: ${response.statusText}`);
+          if (error) {
+            throw new Error(`Failed to sign part: ${error.value}`);
           }
 
-          const data = await response.json();
           return {
-            url: data.url
+            url: data.url!,
           };
         },
 
-        async completeMultipartUpload(_file: any, opts: any) {
+        async completeMultipartUpload(_file: UppyFile<Meta, Body>, opts: any) {
           const { uploadId, key, parts } = opts;
-          
-          const response = await fetch(`${API_BASE_URL}/s3/batch-multipart/${uploadId}/complete?key=${encodeURIComponent(key)}`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ parts }),
-          });
 
-          if (!response.ok) {
-            throw new Error(`Failed to complete multipart upload: ${response.statusText}`);
+          const { data, error } = await app.s3["batch-multipart"]({
+            uploadId: uploadId,
+          }).complete.post(
+            {
+              parts: parts,
+            },
+            {
+              fetch: {
+                credentials: "include",
+              },
+              query: {
+                key: key,
+              },
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (error) {
+            throw new Error(
+              `Failed to complete multipart upload: ${error.value}`
+            );
           }
 
-          const data = await response.json();
           return {
-            location: data.location
+            location: data.location,
           };
         },
 
-        async abortMultipartUpload(_file: any, opts: any) {
+        async abortMultipartUpload(_file: UppyFile<Meta, Body>, opts: any) {
           const { uploadId, key } = opts;
-          
-          await fetch(`${API_BASE_URL}/s3/batch-multipart/${uploadId}?key=${encodeURIComponent(key)}`, {
-            method: 'DELETE',
-            credentials: 'include',
-          });
+
+          await app.s3["batch-multipart"]({ uploadId: uploadId }).delete(
+            {},
+            {
+              fetch: {
+                credentials: "include",
+              },
+              query: {
+                key: key
+              }
+            }
+          );
           // Note: We don't throw on failure here as abort should be best-effort
-        }
+        },
       });
     } catch (error) {
       // Handle plugin already registered error in React strict mode
@@ -218,40 +242,38 @@ export function STSUploadExample() {
     }
 
     // Event listeners
-    uppy.on('complete', (result) => {
+    uppy.on("complete", (result) => {
       if (result.successful) {
-        const newUploadedFiles = result.successful.map(file => ({
+        const newUploadedFiles = result.successful.map((file) => ({
           id: file.id,
-          name: file.name || 'Unknown file',
+          name: file.name || "Unknown file",
           location: file.response?.body?.location,
           size: file.size || 0,
-          type: file.type || 'application/octet-stream'
-        }))
-        
-        setUploadedFiles(prev => [...prev, ...newUploadedFiles])
-        
+          type: file.type || "application/octet-stream",
+        }));
+
+        setUploadedFiles((prev) => [...prev, ...newUploadedFiles]);
+
         // Show success message
-        console.log('Upload complete:', result)
+        console.log("Upload complete:", result);
       }
-    })
+    });
 
-    uppy.on('upload-error', (_file, error) => {
-      console.error('Upload error:', error)
-    })
+    uppy.on("upload-error", (_file, error) => {
+      console.error("Upload error:", error);
+    });
 
-    uppy.on('file-added', (file) => {
-      console.log('File added:', file.name)
-    })
+    uppy.on("file-added", (file) => {
+      console.log("File added:", file.name);
+    });
 
-    uppy.on('file-removed', (file) => {
-      console.log('File removed:', file.name)
-    })
+    uppy.on("file-removed", (file) => {
+      console.log("File removed:", file.name);
+    });
 
     uppyRef.current = uppy;
     setIsUppyReady(true);
   }, []);
-
-
 
   // Cleanup on unmount
   React.useEffect(() => {
@@ -281,8 +303,8 @@ export function STSUploadExample() {
             High-Performance Upload
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Uses batch presigned URLs {'+'} MultiParts for faster uploads with less request
-            overhead
+            Uses batch presigned URLs {"+"} MultiParts for faster uploads with
+            less request overhead
           </p>
         </div>
 
