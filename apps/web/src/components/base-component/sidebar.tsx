@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Image, Users } from "lucide-react";
+import { SignOutButton } from "./sign-out-button";
 
 const user = {
   profilePictureLink: "https://i.pravatar.cc/100",
@@ -59,13 +60,7 @@ export function Sidebar({
                     )}
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-500 cursor-pointer max-sm:text-xs text-end justify-end p-0"
-                >
-                  Log Out
-                </Button>
+                <SignOutButton />
               </div>
 
               <nav className="space-y-2">

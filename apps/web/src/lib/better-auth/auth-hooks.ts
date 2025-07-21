@@ -35,6 +35,7 @@ export function useAuth() {
     onSuccess: () => {
       refetch();
       void queryClient.invalidateQueries();
+      window.location.href = "/sign-in";
     },
     onError: (error) => {
       console.error("Sign-out error:", error);
