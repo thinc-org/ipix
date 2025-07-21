@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSessionServerFn } from "./auth-server-fns";
 import type { Session } from "./auth-server-fns";
 import { authClient } from "./auth-client";
+import toast from "react-hot-toast";
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -15,29 +16,27 @@ export function useAuth() {
     mutationFn: async (provider: string) =>
       authClient.signIn.social({ provider: provider }),
     onSuccess: (result) => {
-      // Handle OAuth redirect
       if (result && result.data && result.data.url) {
         window.location.href = result.data.url;
       } else {
-        // For non-OAuth sign-ins, just invalidate the session
         queryClient.invalidateQueries({ queryKey: ["auth-session"] });
       }
     },
     onError: (error) => {
+      toast.error("Error signing in");
       console.error("Sign-in error:", error);
     },
   });
 
   const signOutMutation = useMutation({
-    mutationFn: async () => {
-      return authClient.signOut();
-    },
+    mutationFn: async () => authClient.signOut(),
     onSuccess: () => {
       refetch();
       void queryClient.invalidateQueries();
       window.location.href = "/sign-in";
     },
     onError: (error) => {
+      toast.error("Error signing out");
       console.error("Sign-out error:", error);
     },
   });
