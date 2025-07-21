@@ -32,7 +32,7 @@ export const auth = betterAuth({
     {
       provider: "pg",
       schema: authTable,
-    },
+    }
   ),
   emailAndPassword: {
     enabled: true,
@@ -49,6 +49,14 @@ export const auth = betterAuth({
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
       redirectURI: "http://localhost:20257/api/auth/callback/github",
       scope: ["user:email", "read:user"],
+    },
+    google: {
+      enabled: true,
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      redirectURI: "http://localhost:20257/api/auth/callback/google",
+      accessType: "offline",
+      prompt: "select_account",
     },
   },
   plugins: [openAPI()],
