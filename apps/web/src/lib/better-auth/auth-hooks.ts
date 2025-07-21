@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSessionServerFn, signInServerFn } from "./auth-server-fns";
+import { getSessionServerFn } from "./auth-server-fns";
 import type { Session } from "./auth-server-fns";
 import { authClient } from "./auth-client";
 
@@ -12,7 +12,8 @@ export function useAuth() {
   });
 
   const signInMutation = useMutation({
-    mutationFn: (provider: string) => signInServerFn({ data: provider }),
+    mutationFn: async (provider: string) =>
+      authClient.signIn.social({ provider: provider }),
     onSuccess: (result) => {
       // Handle OAuth redirect
       if (result && result.data && result.data.url) {
@@ -21,6 +22,9 @@ export function useAuth() {
         // For non-OAuth sign-ins, just invalidate the session
         queryClient.invalidateQueries({ queryKey: ["auth-session"] });
       }
+    },
+    onError: (error) => {
+      console.error("Sign-in error:", error);
     },
   });
 
