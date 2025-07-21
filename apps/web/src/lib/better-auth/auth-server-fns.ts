@@ -26,11 +26,4 @@ export const signInServerFn = createServerFn({ method: "POST" })
     return result;
   });
 
-export const signOutServerFn = createServerFn({
-  method: "POST",
-}).handler(async () => {
-  const result = await authClient.signOut();
-  return result;
-});
-
 export type { Session };

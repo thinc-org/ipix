@@ -100,10 +100,7 @@ export function GoogleSignInButton({
   };
 
   const handleSignOut = () => {
-    console.log("sign out");
-
     signOut();
-    refetch();
   };
 
   return (

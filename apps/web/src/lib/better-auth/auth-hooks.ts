@@ -1,10 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  getSessionServerFn,
-  signInServerFn,
-  signOutServerFn,
-} from "./auth-server-fns";
+import { getSessionServerFn, signInServerFn } from "./auth-server-fns";
 import type { Session } from "./auth-server-fns";
+import { authClient } from "./auth-client";
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -28,9 +25,15 @@ export function useAuth() {
   });
 
   const signOutMutation = useMutation({
-    mutationFn: () => signOutServerFn(),
+    mutationFn: async () => {
+      return authClient.signOut();
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["auth-session"] });
+      refetch();
+      void queryClient.invalidateQueries();
+    },
+    onError: (error) => {
+      console.error("Sign-out error:", error);
     },
   });
 
