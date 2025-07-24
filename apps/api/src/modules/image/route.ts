@@ -37,9 +37,6 @@ const sanitizeHeaderValue = (value: string): string => {
 
 export const s3Router = new Elysia({ prefix: "/s3" })
   .use(betterAuthMiddleware)
-  .onAfterHandle(({ set }) => {
-    set.headers["Access-Control-Allow-Origin"] = accessControlAllowOrigin;
-  })
   // Not used yet, because MinIO does not support GetFederationTokenCommand
   .get("/sts", async ({ set }) => {
     const policy = {
