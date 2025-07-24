@@ -9,15 +9,6 @@ import app from '@/lib/fetch'
 import "@uppy/core/dist/style.min.css";
 import "@uppy/dashboard/dist/style.min.css";
 
-// API base URL
-const API_BASE_URL = process.env.API_BASE_URL;
-
-if (!API_BASE_URL) {
-  throw new Error('API_BASE_URL is required but not defined')
-}
-
-
-
 export function STSUploadExample() {
   const uppyRef = useRef<Uppy<any> | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
