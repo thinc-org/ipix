@@ -7,6 +7,7 @@ import {
   ListPartsCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { GetFederationTokenCommand } from "@aws-sdk/client-sts";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -20,6 +21,8 @@ import {
   s3Bucket,
 } from "@repo/s3";
 import { betterAuthMiddleware } from "../auth/route.js";
+import archiver from "archiver";
+import { PassThrough, Readable } from "node:stream";
 
 const generateKey = (fname: string) => `${crypto.randomUUID()}-${fname}`;
 const isValidPartNumber = (n: number) =>
@@ -29,9 +32,9 @@ const isValidPartNumber = (n: number) =>
 // AWS S3 metadata values must be ASCII and certain characters are forbidden
 const sanitizeHeaderValue = (value: string): string => {
   return value
-    .replace(/[^\x20-\x7E]/g, '') // Remove non-ASCII characters
-    .replace(/[\r\n\t]/g, '') // Remove control characters
-    .replace(/[\"\\]/g, '') // Remove quotes and backslashes
+    .replace(/[^\x20-\x7E]/g, "") // Remove non-ASCII characters
+    .replace(/[\r\n\t]/g, "") // Remove control characters
+    .replace(/[\"\\]/g, "") // Remove quotes and backslashes
     .trim();
 };
 
@@ -151,7 +154,9 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
           // Add metadata for batch tracking
           Metadata: {
             "upload-context": sanitizeHeaderValue(context || "general"),
-            "batch-timestamp": sanitizeHeaderValue(timestamp || new Date().toISOString()),
+            "batch-timestamp": sanitizeHeaderValue(
+              timestamp || new Date().toISOString()
+            ),
             "original-filename": sanitizeHeaderValue(filename),
             "file-size": sanitizeHeaderValue(size?.toString() || "0"),
           },
@@ -240,7 +245,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         context: t.Optional(t.String()),
         metadata: t.Optional(
           t.Record(t.String(), t.Union([t.String(), t.Null()]))
-        ),  
+        ),
       }),
 
       auth: true,
@@ -378,5 +383,163 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       query: t.Object({ key: t.String() }),
 
       auth: true,
+    }
+  )
+
+  //Get single image
+  .get(
+    "/image/:imageKey",
+    async ({ params, set, query }) => {
+      const { imageKey } = params;
+      const { download } = query;
+
+      const getObjectCommandInput = {
+        Bucket: s3Bucket,
+        Key: imageKey,
+      };
+
+      if (download === "true") {
+        const filename = imageKey.split("/").pop() || "download";
+        Object.assign(getObjectCommandInput, {
+          ResponseContentDisposition: `attachment; filename="${decodeURIComponent(filename)}"`,
+        });
+      } else {
+        Object.assign(getObjectCommandInput, {
+          ResponseContentDisposition: "inline",
+        });
+      }
+
+      const url = await getSignedUrl(
+        s3,
+        new GetObjectCommand(getObjectCommandInput),
+        { expiresIn }
+      );
+      return { url, expires: expiresIn };
+    },
+    {
+      params: t.Object({ imageKey: t.String() }),
+      query: t.Object({ download: t.Optional(t.String()) }),
+    }
+  )
+
+  //Bulk download image
+  .post(
+    "/batch-download",
+    async ({ body, set }) => {
+      const { imageKeys } = body;
+
+      const keysArray = imageKeys.filter((key: string) => key !== "");
+
+      if (keysArray.length === 0) {
+        set.status = 400;
+        return { error: "No valid image keys provided for download." };
+      }
+
+      const zipStream = new PassThrough();
+
+      set.headers["Content-Type"] = "application/zip";
+      set.headers["Content-Disposition"] = 'attachment; filename="files.zip"';
+
+      (async () => {
+        const archive = archiver("zip", { zlib: { level: 9 } });
+
+        archive.pipe(zipStream);
+
+        archive.on("error", (err) => {
+          console.error("Archiver error:", err);
+          zipStream.emit("error", err);
+        });
+
+        archive.on("warning", function (err) {
+          if (err.code === "ENOENT") {
+            console.warn("Archiver warning (ENOENT):", err);
+          } else {
+            console.error("Archiver unhandled warning:", err);
+            zipStream.emit("error", err);
+          }
+        });
+
+        await Promise.allSettled(
+          keysArray.map(async (key) => {
+            try {
+              const presignedUrl = await getSignedUrl(
+                s3,
+                new GetObjectCommand({
+                  Bucket: s3Bucket,
+                  Key: key,
+                }),
+                { expiresIn }
+              );
+
+              const response = await fetch(presignedUrl);
+
+              if (!response.ok) {
+                throw new Error(
+                  `HTTP error status: ${response.status} for key: ${key}`
+                );
+              }
+
+              const webStream = response.body;
+
+              if (webStream) {
+                const nodeStream = Readable.from(webStream);
+                nodeStream.on("error", (err) => {
+                  console.error(`Stream error for ${key}:`, err);
+                });
+                const fileName = key.split("/").pop() || key;
+                archive.append(nodeStream, { name: fileName });
+              } else {
+                console.warn(`Fetch response body is null for key: ${key}`);
+              }
+            } catch (err: any) {
+              console.error(`Error processing file "${key}":`, err);
+            }
+          })
+        );
+
+        await archive.finalize();
+      })();
+
+      return zipStream;
+    },
+    {
+      body: t.Object({
+        imageKeys: t.Array(t.String()),
+      }),
+    }
+  )
+
+  //get bulk image (maybe optimizing for scalability ex pagination in the future??)
+  .post(
+    "/batch-image",
+    async ({ body }) => {
+      const { keys } = body;
+
+      const signedUrls = await Promise.all(
+        keys.map(async (encodedKey: string) => {
+          const imageKey = decodeURIComponent(encodedKey);
+
+          const getObjectCommandInput = {
+            Bucket: s3Bucket,
+            Key: imageKey,
+          };
+
+          try {
+            const url = await getSignedUrl(
+              s3,
+              new GetObjectCommand(getObjectCommandInput),
+              { expiresIn }
+            );
+            return { key: imageKey, url, expires: expiresIn };
+          } catch (err) {
+            return { key: imageKey, error: "Could not generate signed URL" };
+          }
+        })
+      );
+
+      return { signedUrls };
+    },
+    {
+      body: t.Object({ keys: t.Array(t.String()) }),
     }
   );
