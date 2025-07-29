@@ -44,7 +44,6 @@ export function GoogleSignInButton({
 
         if (hasOAuthParams) {
           setIsProcessingCallback(true);
-          console.log("Processing OAuth callback...");
 
           // Check for errors first
           const error = urlParams.get("error");
@@ -60,7 +59,6 @@ export function GoogleSignInButton({
 
           // Try to get the session
           const sessionResult = await authClient.getSession();
-          console.log("Session after callback:", sessionResult);
 
           // Refetch to update the UI
           await refetch();

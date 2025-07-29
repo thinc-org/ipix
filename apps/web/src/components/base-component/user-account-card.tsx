@@ -56,7 +56,6 @@ export function UserAccountCard({
       name: tempName,
       imageProfile: tempPreviewImage,
     });
-    console.log("Updated user info:", userInfo);
     setEditing(false);
   };
 
