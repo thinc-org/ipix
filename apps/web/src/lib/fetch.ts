@@ -7,6 +7,10 @@ if (!API_BASE_URL) {
   throw new Error('API_BASE_URL is required but not defined')
 }
 
-const app = treaty<App>(API_BASE_URL);
+const app = treaty<App>(API_BASE_URL, {
+    fetch: {
+        credentials: 'include'
+    }
+});
 
 export default app
