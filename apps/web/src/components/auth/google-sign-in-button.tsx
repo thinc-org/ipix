@@ -54,16 +54,9 @@ export function GoogleSignInButton({
             return;
           }
 
-          // Wait a bit for the backend to process the callback and set cookies
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-
-          // Try to get the session
           const sessionResult = await authClient.getSession();
-
-          // Refetch to update the UI
           await refetch();
 
-          // Clean up URL and redirect to home or dashboard
           window.history.replaceState(
             {},
             document.title,
@@ -72,7 +65,6 @@ export function GoogleSignInButton({
           setIsLoading(false);
           setIsProcessingCallback(false);
 
-          // If we have a session, redirect to home
           if (sessionResult.data) {
             navigate({ to: "/" });
           }
