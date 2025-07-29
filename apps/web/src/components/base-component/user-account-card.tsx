@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -31,6 +31,7 @@ export function UserAccountCard({
   const [tempPreviewImage, setTempPreviewImage] = useState<string | undefined>(
     initialUserInfo.imageProfile
   );
+  const tempPreviewImageUrlRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     setUserInfo(initialUserInfo);
@@ -62,11 +63,14 @@ export function UserAccountCard({
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (tempPreviewImageUrlRef.current) {
+        URL.revokeObjectURL(tempPreviewImageUrlRef.current);
+      }
       const previewUrl = URL.createObjectURL(file);
+      tempPreviewImageUrlRef.current = previewUrl;
       setTempPreviewImage(previewUrl);
     }
   };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
