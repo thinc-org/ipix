@@ -38,16 +38,30 @@ import {
   DeleteFolderButton,
 } from "@/components/image-folder";
 import { Sidebar } from "@/components/base-component/sidebar";
+import { UserAccountCard } from "@/components/base-component/user-account-card";
+import { useAuth } from "@/lib/better-auth/auth-hooks";
 export function TestUi() {
   const [inputValue, setInputValue] = useState("");
   const [textareaValue, setTextareaValue] = useState("");
   const [selectValue, setSelectValue] = useState("");
+  const { session } = useAuth();
+  const userInfo = {
+    email: session?.user.email ?? undefined,
+    name: session?.user.name ?? undefined,
+    imageProfile: session?.user.image ?? undefined,
+    role: "Admin",
+  };
 
   return (
     <div className="min-h-screen bg-background relative">
       {/* Header Component */}
       <Header />
-      <Sidebar />
+      <Sidebar
+        userInfo={{
+          email: userInfo.email,
+          imageProfile: userInfo.imageProfile,
+        }}
+      />
 
       {/* TODO - remove the hard-coded 80vw (when sidebar is collpased ?) */}
       <div className="container absolute mx-auto p-8 space-y-8 w-[80vw] top-[10vh] right-0 ">
@@ -78,6 +92,7 @@ export function TestUi() {
             uploadDate: new Date(),
           }}
         />
+        <UserAccountCard userInfo={userInfo} />
         <CreateFolderButton />
         <RenameFolderButton />
         <DeleteFolderButton variant="destructive" />

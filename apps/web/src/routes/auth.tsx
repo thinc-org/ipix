@@ -49,7 +49,7 @@ function AuthComponent() {
           window.history.replaceState(
             {},
             document.title,
-            window.location.pathname,
+            window.location.pathname
           );
           setIsProcessingCallback(false);
 
@@ -68,7 +68,7 @@ function AuthComponent() {
   }, [refetch, navigate]);
 
   const handleSignIn = async () => {
-    signIn("github");
+    signIn("google");
   };
 
   const handleSignOut = async () => {

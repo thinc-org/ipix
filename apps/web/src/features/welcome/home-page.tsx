@@ -4,12 +4,25 @@ import { CreateFolderButton } from "@/components/image-folder";
 import { DisplayFile } from "@/components/image-folder/display-file";
 import { Folder } from "@/components/image-folder/folder";
 import { mockFiles, mockFolders } from "@/utils/mock/mock";
+import { useAuth } from "@/lib/better-auth/auth-hooks";
 
 export function HomePage() {
+  const { session } = useAuth();
+  const userInfo = {
+    email: session?.user.email ?? undefined,
+    name: session?.user.name ?? undefined,
+    imageProfile: session?.user.image ?? undefined,
+    role: "Admin",
+  };
   return (
     <div className="min-h-screen bg-background relative">
       <Header />
-      <Sidebar />
+      <Sidebar
+        userInfo={{
+          email: userInfo.email,
+          imageProfile: userInfo.imageProfile,
+        }}
+      />
 
       <div className="absolute top-[10vh] right-0 w-[80vw] px-8">
         <div className="flex justify-end p-8">

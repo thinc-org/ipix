@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Image, Users } from "lucide-react";
+import { SignOutButton } from "./sign-out-button";
 
 const user = {
   profilePictureLink: "https://i.pravatar.cc/100",
@@ -14,11 +15,18 @@ const user = {
   storageSpaceAll: 1000,
 };
 
-export function Sidebar() {
+export function Sidebar({
+  userInfo,
+}: {
+  userInfo: {
+    email: string | undefined;
+    imageProfile: string | undefined;
+  };
+}) {
   const [open, setOpen] = useState(true);
 
   const percentage = Math.floor(
-    (user.storageSpaceUsed / user.storageSpaceAll) * 100,
+    (user.storageSpaceUsed / user.storageSpaceAll) * 100
   );
 
   return (
@@ -34,7 +42,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "bg-white dark:bg-neutral-800 border-r shadow-sm transition-all  h-full overflow-y-auto",
-          open ? "w-[80vw] md:w-[20vw]" : "w-0",
+          open ? "w-[80vw] md:w-[20vw]" : "w-0"
         )}
       >
         {open && (
@@ -43,18 +51,16 @@ export function Sidebar() {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-0.5 sm:gap-2">
                   <Avatar className="max-sm:h-8 max-sm:w-8">
-                    <AvatarImage src={user.profilePictureLink} />
+                    <AvatarImage src={userInfo.imageProfile} />
                     <AvatarFallback>U</AvatarFallback>
                   </Avatar>
-                  <div className="max-sm:text-sm">{user.email}</div>
+                  <div className="max-sm:text-sm">
+                    {userInfo.email ?? (
+                      <span className="inline-block h-4 w-28 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                    )}
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-500 cursor-pointer max-sm:text-xs text-end justify-end p-0"
-                >
-                  Log Out
-                </Button>
+                <SignOutButton />
               </div>
 
               <nav className="space-y-2">
