@@ -3,16 +3,13 @@ import { RenameFolderButton } from "./rename-folder-button";
 import { DeleteFolderButton } from "./";
 import { Link } from "@tanstack/react-router";
 import { useOnClickOutside } from "usehooks-ts";
+import type { FolderType } from "@/utils/types/folder";
 
-export function Folder({
-  folderName,
-  imageCount,
-  folderId,
-}: {
-  folderName: string;
-  imageCount: number;
-  folderId: string;
-}) {
+type FolderProps = {
+  folder: FolderType;
+};
+
+export function Folder({ folder }: FolderProps) {
   const [menuVisible, setMenuVisible] = useState(false);
   const folderRef = useRef<HTMLDivElement>(null);
 
@@ -37,11 +34,11 @@ export function Folder({
       className="w-[184px] relative"
       onContextMenu={handleContextMenu}
     >
-      <Link to={folderId} className="flex flex-col items-center p-2">
+      <Link to={folder.id} className="flex flex-col items-center p-2">
         <img src="/image_folder_resource/folder.svg" aria-hidden="true" />
-        <span className="text-center text-xs">{folderName}</span>
+        <span className="text-center text-xs">{folder.name}</span>
         <span className="text-black/50 text-xs">
-          Folder · {imageCount} Item(s)
+          Folder · {folder.imageCount} Item(s)
         </span>
       </Link>
 
