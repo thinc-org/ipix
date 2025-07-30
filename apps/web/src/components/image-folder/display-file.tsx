@@ -20,8 +20,14 @@ export function DisplayFile({ file }: FileProps) {
   )}`;
   return (
     <div className="w-[184px] flex flex-col items-center p-2">
-      <img src={file.url} alt={file.name} />
-      <span className="text-center text-xs ">{file.name}</span>
+      <div className="w-[150px] h-[90px] bg-gray-100 overflow-hidden flex items-center justify-center">
+        <img
+          src={file.url}
+          alt={file.name}
+          className="w-full h-full object-contain"
+        />
+      </div>
+      <span className="text-center text-xs mt-1">{file.name}</span>
       <span className="text-black/50 text-xs">{formattedDate}</span>
     </div>
   );
