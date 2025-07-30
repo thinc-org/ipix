@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TestDialog } from "@/features/welcome/test-dialog";
 import { TestUi } from "@/features/welcome/test-ui";
+import { HomePage } from "@/features/welcome/home-page";
 
 export const Route = createFileRoute("/")({
   component: App,
@@ -9,8 +10,8 @@ export const Route = createFileRoute("/")({
 function App() {
   return (
     <>
-      {/* <TestDialog /> */}
-      <TestUi />
+      {/* <TestUi /> */}
+      <HomePage />
     </>
   );
 }
