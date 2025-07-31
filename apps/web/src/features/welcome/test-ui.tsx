@@ -74,11 +74,23 @@ export function TestUi() {
             variants including our custom Header component
           </p>
         </div>
-        <Folder folderName="name" imageCount={1} folderId="1" />
+        <Folder
+          folder={{
+            id: "1",
+            name: "Vacation Photos",
+            parent: null,
+            imageCount: 10,
+          }}
+        />
         <DisplayFile
-          imageName="name"
-          imageSrc="/image_folder_resource/folder.svg"
-          uploadDate={new Date()}
+          file={{
+            id: "5",
+            name: "Project Proposal.docx",
+            url: "/files/proposal.docx",
+            parent: "root",
+            size: "2.5 MB",
+            uploadDate: new Date(),
+          }}
         />
         <UserAccountCard userInfo={userInfo} />
         <CreateFolderButton />

@@ -27,7 +27,7 @@ export function CreateFolderButton({ variant }: { variant?: ButtonVariant }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={variant}>+ New</Button>
+        <Button variant={variant}>New Folder</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
