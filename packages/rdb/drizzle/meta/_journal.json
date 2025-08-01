@@ -6,7 +6,63 @@
       "idx": 0,
       "version": "7",
       "when": 1752657088565,
-      "tag": "0000_uneven_mockingbird",
+      "tag": "0000_better_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1754043216880,
+      "tag": "0001_uuidv7_func",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1754043253832,
+      "tag": "0002_access_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1754044972070,
+      "tag": "0003_better_auth_to_uuid",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1754044985337,
+      "tag": "0004_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1754045067979,
+      "tag": "0005_storage_custom",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1754045840377,
+      "tag": "0006_storage_custom2",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1754046698497,
+      "tag": "0007_storage_custom3",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1754048779696,
+      "tag": "0008_storage_custom4",
       "breakpoints": true
     }
   ]
