@@ -19,40 +19,41 @@ import { sql } from "drizzle-orm";
 import { user } from "./auth";
 
 /* ENUMS */
-const spaceTypeEnum  = pgEnum("space_type",  ["user", "team"]);
+const spaceTypeEnum = pgEnum("space_type", ["user", "team"]);
 const accessTypeEnum = pgEnum("access_type", ["owner", "team", "public"]);
-const itemTypeEnum   = pgEnum("item_type",   ["file", "folder"]);
+const itemTypeEnum = pgEnum("item_type", ["file", "folder"]);
 
 /* SPACE */
 const spaceConstraints = (t: any) => [
   unique("uq_space_owner_name").on(t.ownedBy, t.name),
-  unique('uq_space_team_name').on(t.type, t.name),
-  index('idx_space_created_by').on(t.createdBy)
+  unique("uq_space_team_name").on(t.type, t.name),
+  index("idx_space_created_by").on(t.createdBy),
 ];
 
 export const space = pgTable(
   "space",
   {
-    id:        uuid("id").primaryKey().default(sql`uuidv7_sub_ms()`),
-    name:      varchar("name", { length: 256 }).notNull(),
-    type:      spaceTypeEnum().notNull(),
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`uuidv7_sub_ms()`),
+    name: varchar("name", { length: 256 }).notNull(),
+    type: spaceTypeEnum().notNull(),
 
     createdBy: uuid("created_by")
-                 .notNull()
-                 .references(() => user.id, { onDelete: "cascade" }),
-
-    ownedBy:   uuid("owned_by")
-                 .notNull()
-                 .references(() => user.id, { onDelete: "cascade" }),
-
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    ownedBy: uuid("owned_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     accessType: accessTypeEnum().notNull(),
-
     createdAt: timestamp("created_at", { withTimezone: true })
-                 .defaultNow().notNull(),
+      .defaultNow()
+      .notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
-                 .defaultNow().notNull(),
+      .defaultNow()
+      .notNull(),
   },
-  spaceConstraints,
+  spaceConstraints
 );
 
 /* ITEM */
@@ -61,8 +62,8 @@ const itemConstraints = (t: any) => [
   index("idx_item_space").on(t.spaceId),
   index("idx_item_parent").on(t.parentId),
   index("idx_item_trash_time").on(t.trashedDeleteDT),
-  index('idx_item_created_by').on(t.createdBy),
-  index('idx_item_space_parent_created').on(t.spaceId, t.parentId, t.createdAt),
+  index("idx_item_created_by").on(t.createdBy),
+  index("idx_item_space_parent_created").on(t.spaceId, t.parentId, t.createdAt),
 
   /* Optimised browsing */
   index("idx_item_space_parent").on(t.spaceId, t.parentId),
@@ -107,58 +108,61 @@ const itemConstraints = (t: any) => [
         OR
         (${t.itemType} = 'folder' AND ${t.mimeType} IS NULL AND ${t.sizeByte} IS NULL)
       )
-    `,
+    `
   ),
-  check("chk_item_not_self_parent",
-        sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`),
-  check("chk_size_non_negative",
-        sql`${t.sizeByte} IS NULL OR ${t.sizeByte} >= 0::bigint`),
+  check(
+    "chk_item_not_self_parent",
+    sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`
+  ),
+  check(
+    "chk_size_non_negative",
+    sql`${t.sizeByte} IS NULL OR ${t.sizeByte} >= 0::bigint`
+  ),
   check("chk_item_name_not_empty", sql`${t.name} <> ''`),
-  check("chk_valid_delete_dt",
-        sql`${t.trashedDeleteDT} IS NULL OR ${t.trashedDeleteDT} > ${t.createdAt}`),
+  check(
+    "chk_valid_delete_dt",
+    sql`${t.trashedDeleteDT} IS NULL OR ${t.trashedDeleteDT} > ${t.createdAt}`
+  ),
 ];
 
 export const item = pgTable(
   "item",
   {
-    id: uuid("id").primaryKey().default(sql`uuidv7_sub_ms()`),
-
-    parentId: uuid("parent_id")
-      .references((): any => item.id, { onDelete: "cascade" }),
-
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`uuidv7_sub_ms()`),
+    /* TEMP FOR ALPHA: previewId */
+    previewId: uuid("preview_id").default(sql`uuidv7_sub_ms()`).notNull(),
+    parentId: uuid("parent_id").references((): any => item.id, {
+      onDelete: "cascade",
+    }),
     spaceId: uuid("space_id")
       .references(() => space.id, { onDelete: "cascade" })
       .notNull(),
-
     createdBy: uuid("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-
     name: varchar("name", { length: 256 }).notNull(),
-
     mimeType: varchar("mime_type", { length: 255 }),
-
     sizeByte: bigint("size_byte", { mode: "bigint" }),
-
     /* Generated column rewritten to avoid table alias — Postgres rule */
-    itemType: itemTypeEnum()
-      .generatedAlwaysAs(
-        (): any =>
-          sql`CASE WHEN mime_type IS NULL 
+    itemType: itemTypeEnum().generatedAlwaysAs(
+      (): any =>
+        sql`CASE WHEN mime_type IS NULL 
                    THEN 'folder'::item_type 
                    ELSE 'file'::item_type 
-              END`,
-      ),
+              END`
+    ),
     trashedDeleteDT: timestamp("trashed_delete_dt", { withTimezone: true }),
-
     accessType: accessTypeEnum().notNull(),
-
     createdAt: timestamp("created_at", { withTimezone: true })
-                 .defaultNow().notNull(),
+      .defaultNow()
+      .notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
-                 .defaultNow().notNull(),
+      .defaultNow()
+      .notNull(),
   },
-  itemConstraints,
+  itemConstraints
 );
 
 /* ACCESS RANK */
@@ -173,7 +177,7 @@ const accessRankConstraints = (t: any) => [
        (${t.accessType} = 'public' AND ${t.rank} = 1000)
     OR (${t.accessType} = 'team'   AND ${t.rank} = 2000)
     OR (${t.accessType} = 'owner'  AND ${t.rank} = 3000)
-    `,
+    `
   ),
 ];
 
@@ -183,7 +187,7 @@ export const accessRank = pgTable(
     accessType: accessTypeEnum().primaryKey(),
     rank: smallint("rank").notNull().unique(),
   },
-  accessRankConstraints,
+  accessRankConstraints
 );
 
 /* EFFECTIVE-ACCESS MATERIALISED VIEW */
@@ -194,7 +198,7 @@ export const itemWithEffectiveAccess = pgMaterializedView(
     spaceId: uuid("space_id"),
     effectiveRank: smallint("effective_rank"),
     effectiveAccess: accessTypeEnum("effective_access"),
-  },
+  }
 ).as(sql`
   WITH RECURSIVE chain AS (
     SELECT  i.id,
