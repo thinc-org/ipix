@@ -416,6 +416,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     {
       params: t.Object({ imageKey: t.String() }),
       query: t.Object({ download: t.Optional(t.String()) }),
+      auth: true,
     }
   )
 
@@ -503,6 +504,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       body: t.Object({
         imageKeys: t.Array(t.String()),
       }),
+      auth: true,
     }
   )
 
@@ -538,5 +540,6 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     },
     {
       body: t.Object({ keys: t.Array(t.String()) }),
+      auth: true,
     }
   );
