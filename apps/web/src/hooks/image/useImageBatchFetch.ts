@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import app from "@/lib/fetch";
 
-export function useBatchImageKeys() {
+export function useImageBatchFetch() {
   return useQuery({
     queryKey: ["batch-image-keys"],
     queryFn: async () => {
