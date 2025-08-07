@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { betterAuthMiddleware } from "../auth/route";
 import { createDb } from "../../drizzle/client";
 import { eq } from "drizzle-orm";
-import { storageTable } from "@repo/rdb/schema";
+import { storageSchema } from "@repo/rdb/schema";
 import { MatchType, withMatch } from "../../utils/dynamicQueryHelper";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
@@ -15,13 +15,13 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
       try {
         let queryDb = db
           .select()
-          .from(storageTable.space)
-          .where(eq(storageTable.space.ownedBy, user.id))
+          .from(storageSchema.space)
+          .where(eq(storageSchema.space.ownedBy, user.id))
           .$dynamic();
         if (query.match && query.name) {
           queryDb = withMatch(
             queryDb,
-            storageTable.space.name,
+            storageSchema.space.name,
             query.match,
             query.name
           );
@@ -45,7 +45,7 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
     "/create-space",
     async ({ body, set, user }) => {
       try {
-        const newSpace = await db.insert(storageTable.space).values({
+        const newSpace = await db.insert(storageSchema.space).values({
           name: body.name,
           type: body.spaceType,
           accessType: body.accessType,
@@ -60,15 +60,15 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
     },
     {
       body: t.Object({
-        name: t.String({ maxLength: storageTable.space.name.dataType.length }),
+        name: t.String({ maxLength: storageSchema.space.name.dataType.length }),
         spaceType: t.Enum(
           Object.fromEntries(
-            storageTable.space.type.enumValues.map((val) => [val, val])
+            storageSchema.space.type.enumValues.map((val) => [val, val])
           )
         ),
         accessType: t.Enum(
           Object.fromEntries(
-            storageTable.space.accessType.enumValues.map((val) => [val, val])
+            storageSchema.space.accessType.enumValues.map((val) => [val, val])
           )
         ),
       }),

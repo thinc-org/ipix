@@ -3,7 +3,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { openAPI } from "better-auth/plugins";
 import { createDb } from "../../drizzle/client.js";
-import { authTable } from "@repo/rdb/schema";
+import { authSchema } from "@repo/rdb/schema";
 
 export const auth = betterAuth({
   baseURL: "http://localhost:3000/auth",
@@ -35,7 +35,7 @@ export const auth = betterAuth({
     }),
     {
       provider: "pg",
-      schema: authTable,
+      schema: authSchema,
     }
   ),
   emailAndPassword: {

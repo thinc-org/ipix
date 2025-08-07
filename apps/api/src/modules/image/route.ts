@@ -24,7 +24,7 @@ import { auth, betterAuthMiddleware } from "../auth/route.js";
 import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
 import { createDb } from "../../drizzle/client.js";
-import { storageTable } from "../../../../../packages/rdb/src/schema.js";
+import { storageSchema } from "../../../../../packages/rdb/src/schema.js";
 import { item } from "../../../../../packages/rdb/src/schemas/storage.js";
 import { eq, inArray } from "drizzle-orm";
 const generateKey = (fname: string) => `${crypto.randomUUID()}-${fname}`;
