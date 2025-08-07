@@ -34,10 +34,10 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
       }
     },
     {
-      query: t.Object({
-        name: t.Optional(t.String()),
-        match: t.Optional(t.Enum(MatchType)),
-      }),
+      query: t.Optional(t.Object({
+        name: t.String(),
+        match: t.Enum(MatchType),
+      })),
       auth: true,
     }
   )
