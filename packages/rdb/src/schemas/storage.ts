@@ -19,7 +19,7 @@ import { sql } from "drizzle-orm";
 import { user } from "./auth";
 
 /* ENUMS */
-const spaceTypeEnum = pgEnum("space_type", ["user", "team"]);
+const spaceTypeEnum = pgEnum("space_type", ["personal", "team"]);
 const accessTypeEnum = pgEnum("access_type", ["owner", "team", "public"]);
 const itemTypeEnum = pgEnum("item_type", ["file", "folder"]);
 
