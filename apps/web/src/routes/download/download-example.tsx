@@ -20,7 +20,7 @@ export function DownloadExample() {
     }
 
     if (selectedImageKeys.length === 1) {
-      await downloadSingleImage(selectedImageKeys[0]);
+      await downloadSingleImage(selectedImageKeys);
     } else {
       await downloadMultipleImages(selectedImageKeys);
     }
