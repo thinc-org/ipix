@@ -8,6 +8,7 @@ import {
   betterAuthOpenAPI,
 } from "./modules/auth/route.js";
 import { s3Router } from "./modules/image/route.js";
+import { spaceRouter } from "./modules/space/route.js";
 
 const app = new Elysia()
   .use(betterAuthMiddleware)
@@ -33,6 +34,7 @@ const app = new Elysia()
     })
   )
   .use(s3Router)
+  .use(spaceRouter)
   .get("/", () => "Hello Elysia")
   .listen(20257);
 
