@@ -11,6 +11,7 @@ export type DatabaseInstance = NodePgDatabase<typeof schema>;
 
 export const createDb = (opts?: DatabaseClientOptions): DatabaseInstance => {
   return drizzle({
+    logger: true,
     schema,
     casing: "snake_case",
     connection: {
