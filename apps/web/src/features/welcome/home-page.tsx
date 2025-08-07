@@ -1,6 +1,5 @@
 import { Header } from "@/components/base-component/header";
 import { Sidebar } from "@/components/base-component/sidebar";
-import { CreateFolderButton } from "@/components/image-folder";
 import { DisplayFile } from "@/components/image-folder/display-file";
 import { Folder } from "@/components/image-folder/folder";
 import { mockFiles, mockFolders } from "@/utils/mock/mock";
