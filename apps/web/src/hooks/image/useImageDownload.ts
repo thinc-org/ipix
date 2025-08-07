@@ -1,8 +1,19 @@
 import app from "@/lib/fetch";
 
 export const useImageDownload = () => {
-  const downloadSingleImage = async (imageKey: string) => {
-    const encodedKey = encodeURIComponent(imageKey);
+  const downloadSingleImage = async (imageKey: string[]) => {
+    const { data: downloadKeys, error: err } = await app.s3[
+      "download-image-keys"
+    ].post({
+      keys: imageKey,
+    });
+    if (err) {
+      alert(`Failed to download: ${err?.value || "Unknown download error"}`);
+      return;
+    }
+    const k = downloadKeys.downloadKeys;
+    const j = k ?? "";
+    const encodedKey = encodeURIComponent(j[0]);
     const { data, error } = await app.s3["image"]({
       imageKey: encodedKey,
     }).get({
@@ -17,13 +28,22 @@ export const useImageDownload = () => {
   };
 
   const downloadMultipleImages = async (imageKeys: string[]) => {
+    const { data: downloadKeys, error } = await app.s3[
+      "download-image-keys"
+    ].post({
+      keys: imageKeys,
+    });
+    if (error) {
+      alert(`Failed to download: ${error?.value || "Unknown download error"}`);
+      return;
+    }
     const response = await fetch(
       `${process.env.API_BASE_URL ?? "http://localhost:20257"}/s3/batch-download`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ imageKeys }),
+        body: JSON.stringify({ downloadKeys }),
       }
     );
 

@@ -577,4 +577,38 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     {
       auth: true,
     }
+  )
+  .post(
+    "/download-image-keys",
+    async ({ body, set }) => {
+      const { keys } = body;
+      if (!keys || keys.length == 0) {
+        set.status = 400;
+        return { error: "keys must not be a empty array" };
+      }
+      const uuidRegex =
+        /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})-(.*)$/;
+      const imageIds = keys.map((keyString) => {
+        const match = keyString.match(uuidRegex);
+        if (!match) {
+          throw new Error(`Invalid key format: ${keyString}`);
+        }
+        return match[1];
+      });
+      const db = createDb();
+      const imageRow = await db
+        .select({ key: item.id, name: item.name })
+        .from(item)
+        .where(inArray(item.id, imageIds));
+      if (imageRow.length === 0) {
+        set.status = 404;
+        return { error: "cannot get download keys" };
+      }
+      const downloadKeys = imageRow.map((row) => `${row.key}-${row.name}`);
+      return { downloadKeys };
+    },
+    {
+      body: t.Object({ keys: t.Array(t.String()) }),
+      auth: true,
+    }
   );
