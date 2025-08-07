@@ -20,10 +20,13 @@ import {
   s3Region,
   s3Bucket,
 } from "@repo/s3";
-import { betterAuthMiddleware } from "../auth/route.js";
+import { auth, betterAuthMiddleware } from "../auth/route.js";
 import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
-
+import { createDb } from "../../drizzle/client.js";
+import { storageTable } from "../../../../../packages/rdb/src/schema.js";
+import { item } from "../../../../../packages/rdb/src/schemas/storage.js";
+import { eq, inArray } from "drizzle-orm";
 const generateKey = (fname: string) => `${crypto.randomUUID()}-${fname}`;
 const isValidPartNumber = (n: number) =>
   Number.isInteger(n) && n >= 1 && n <= 10_000;
@@ -142,6 +145,9 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       const datePrefix = timestamp || new Date().toISOString().slice(0, 10);
       const key = `${contextPrefix}/${datePrefix}/${crypto.randomUUID()}-${filename}`;
 
+      //FOR MVP 1.0
+      // const key = `${crypto.randomUUID()}-${filename}`;
+
       const url = await getSignedUrl(
         s3,
         new PutObjectCommand({
@@ -202,6 +208,9 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         context === "faculty-photos" ? "faculty" : "uploads";
       const datePrefix = new Date().toISOString().slice(0, 10);
       const key = `${contextPrefix}/${datePrefix}/${crypto.randomUUID()}-${filename}`;
+
+      //FOR MVP 1.0
+      // const key = `${crypto.randomUUID()}-${filename}`;
 
       // Clean and merge provided metadata with batch-specific metadata
       const cleanedMetadata: Record<string, string> = {};
@@ -515,9 +524,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       const { keys } = body;
 
       const signedUrls = await Promise.all(
-        keys.map(async (encodedKey: string) => {
-          const imageKey = decodeURIComponent(encodedKey);
-
+        keys.map(async (imageKey: string) => {
           const getObjectCommandInput = {
             Bucket: s3Bucket,
             Key: imageKey,
@@ -537,6 +544,68 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       );
 
       return { signedUrls };
+    },
+    {
+      body: t.Object({ keys: t.Array(t.String()) }),
+      auth: true,
+    }
+  )
+  .get(
+    "/preview-image-keys",
+    async (context) => {
+      const {
+        request: { headers },
+      } = context;
+      const session = await auth.api.getSession({ headers });
+      const userid = session?.user.id;
+      if (!userid) {
+        context.set.status = 401;
+        return { error: "Cannot get user ID from session" };
+      }
+      const db = createDb();
+      const imageRow = await db
+        .select({ key: item.previewId, name: item.name })
+        .from(item)
+        .where(eq(item.createdBy, userid));
+      if (imageRow.length === 0) {
+        context.set.status = 404;
+        return { error: "cannot get download keys" };
+      }
+      const imageKeys = imageRow.map((row) => `${row.key}-${row.name}`);
+      return { imageKeys };
+    },
+    {
+      auth: true,
+    }
+  )
+  .post(
+    "/download-image-keys",
+    async ({ body, set }) => {
+      const { keys } = body;
+      if (!keys || keys.length == 0) {
+        set.status = 400;
+        return { error: "keys must not be a empty array" };
+      }
+      const uuidRegex =
+        /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})-(.*)$/;
+      const imageIds = keys.map((keyString) => {
+        const match = keyString.match(uuidRegex);
+        if (!match) {
+          throw new Error(`Invalid key format: ${keyString}`);
+        }
+        return match[1];
+      });
+      const db = createDb();
+      const imageRow = await db
+        .select({ key: item.id, name: item.name })
+        .from(item)
+        .where(inArray(item.id, imageIds));
+      if (imageRow.length === 0) {
+        set.status = 404;
+        return { error: "cannot get download keys" };
+      }
+      const downloadKeys = imageRow.map((row) => `${row.key}-${row.name}`);
+      return { downloadKeys };
     },
     {
       body: t.Object({ keys: t.Array(t.String()) }),
