@@ -42,18 +42,6 @@ export const auth = betterAuth({
     enabled: true,
   },
   socialProviders: {
-    discord: {
-      enabled: true,
-      clientId: process.env.DISCORD_CLIENT_ID!,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-    },
-    github: {
-      enabled: true,
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-      redirectURI: "http://localhost:20257/api/auth/callback/github",
-      scope: ["user:email", "read:user"],
-    },
     google: {
       enabled: true,
       clientId: process.env.GOOGLE_CLIENT_ID as string,
