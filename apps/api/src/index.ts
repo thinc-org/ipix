@@ -9,6 +9,7 @@ import {
 } from "./modules/auth/route.js";
 import { s3Router } from "./modules/image/route.js";
 import { spaceRouter } from "./modules/space/route.js";
+import { itemRouter } from "./modules/item/route.js";
 import cron from "@elysiajs/cron";
 import { createDb } from "./drizzle/client.js";
 import {sql} from 'drizzle-orm'
@@ -47,6 +48,7 @@ const app = new Elysia()
   )
   .use(s3Router)
   .use(spaceRouter)
+  .use(itemRouter)
   .get("/", () => "Hello Elysia")
   .listen(20257);
 
