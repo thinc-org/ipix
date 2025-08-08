@@ -389,6 +389,6 @@ ALTER TABLE user
 E. seed data
 -- 1. access rank --
 ```sql
-INSERT INTO access_rank(access_type, rank) VALUES ('public',1),('team',2),('owner',3)  ON CONFLICT DO NOTHING;
+INSERT INTO access_rank(access_type, rank) VALUES ('public',1000),('team',2000),('owner',3000)  ON CONFLICT DO NOTHING;
 ```
 */
