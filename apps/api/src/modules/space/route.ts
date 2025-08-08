@@ -3,7 +3,7 @@ import { betterAuthMiddleware } from "../auth/route";
 import { createDb } from "../../drizzle/client";
 import { eq } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
-import { MatchType, withMatch } from "../../utils/dynamicQueryHelper";
+import { MatchType, withMatch } from "../../utils/queryHelper";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
