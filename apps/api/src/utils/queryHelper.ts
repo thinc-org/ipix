@@ -41,14 +41,48 @@ export function ensureOwner(ctx: AccessContext) {
   return true;
 }
 
+export async function scopeItemRead<T extends PgSelect>(
+  ctx: AccessContext,
+  args: {
+    itemId: string;
+    includeTrash?: boolean;
+  }
+) {
+  let qb = db.select().from(storageSchema.item)
+  const base = ctx.isOwner
+    ? qb
+    : qb.innerJoin(
+        storageSchema.itemWithEffectiveAccess,
+        and(
+          eq(storageSchema.itemWithEffectiveAccess.id, storageSchema.item.id),
+          eq(
+            storageSchema.itemWithEffectiveAccess.spaceId,
+            storageSchema.item.spaceId
+          ),
+          lte(storageSchema.itemWithEffectiveAccess.effectiveRank, 1000)
+        )
+      );
+
+  return await base.where(
+    and(
+      eq(storageSchema.item.spaceId, ctx.spaceId),
+      eq(storageSchema.item.id, args.itemId),
+      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.trashedDeleteDT)
+    )
+  ).limit(1);
+}
+
 export function scopeItemsRead<T extends PgSelect>(
   qb: T,
   ctx: AccessContext,
   args: {
     parentId: string | null;
     includeTrash?: boolean;
+    name?: string;
+    match?: MatchType;
   }
 ) {
+  const match = args.match ?? MatchType.CONTAINS
   const base = ctx.isOwner
     ? qb
     : qb.innerJoin(
@@ -65,12 +99,12 @@ export function scopeItemsRead<T extends PgSelect>(
 
   return base.where(
     and(
-      // Use item.spaceId so we don't need the space table in FROM
       eq(storageSchema.item.spaceId, ctx.spaceId),
       args.parentId === null
-        ? isNull(storageSchema.item.parentId) // fixed: check item.parentId
+        ? isNull(storageSchema.item.parentId)
         : eq(storageSchema.item.parentId, args.parentId),
-      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.trashedDeleteDT)
+      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.trashedDeleteDT),
+      args.name ? patternBuilder(storageSchema.item.name, args.name, match) : sql`TRUE`
     )
   );
 }
@@ -96,20 +130,24 @@ export function withMatch<T extends PgSelect>(
   matchType: MatchType,
   searchString: string
 ): T {
-  switch (matchType) {
+  return qb.where(patternBuilder(matchColumn, searchString, matchType))
+}
+
+function patternBuilder(matchColumn: PgColumn, searchString: string, matchType: MatchType) {
+    switch (matchType) {
     case MatchType.EXACT:
-      return qb.where(eq(matchColumn, searchString));
+      return eq(matchColumn, searchString);
 
     case MatchType.CONTAINS:
-      return qb.where(like(matchColumn, `%${searchString}%`));
+      return like(matchColumn, `%${searchString}%`);
 
     case MatchType.STARTS_WITH:
-      return qb.where(like(matchColumn, `${searchString}%`));
+      return like(matchColumn, `${searchString}%`);
 
     default: {
       // Exhaustiveness guard – makes sure we handled every literal
       const _never: never = matchType;
-      return qb;
+      return sql`TRUE`;
     }
   }
 }
