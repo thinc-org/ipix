@@ -913,7 +913,7 @@
           "notNull": false
         }
       },
-      "definition": "\n  WITH RECURSIVE chain AS (\n    SELECT  i.id,\n            i.space_id,\n            i.parent_id,\n            i.access_type,\n            ar.rank\n    FROM   item i\n    JOIN   access_rank ar USING (access_type)\n\n    UNION ALL\n\n    SELECT  c.id,\n            p.space_id,\n            p.parent_id,\n            p.access_type,\n            ar.rank\n    FROM   chain c\n    JOIN   item p ON p.id = c.parent_id\n    JOIN   access_rank ar USING (access_type)\n  ),\n  ranked AS (\n    SELECT\n      id,\n      space_id,\n      access_type,\n      rank,\n      ROW_NUMBER() OVER (PARTITION BY id, space_id ORDER BY rank DESC) AS rn\n    FROM chain\n  )\n  SELECT\n    id,\n    space_id,\n    rank        AS effective_rank,\n    access_type AS effective_access\n  FROM ranked\n  WHERE rn = 1;\n",
+      "definition": "\n  WITH RECURSIVE chain AS (\n    SELECT  i.id,\n            i.space_id,\n            i.parent_id,\n            i.access_type,\n            ar.rank\n    FROM   item i\n    JOIN   access_rank ar USING (access_type)\n\n    UNION ALL\n\n    SELECT  c.id,\n            p.space_id,\n            p.parent_id,\n            p.access_type,\n            ar.rank\n    FROM   chain c\n    JOIN   item p ON p.id = c.parent_id\n    JOIN   access_rank ar USING (access_type)\n  ),\n  ranked AS (\n    SELECT\n      id,\n      space_id,\n      access_type,\n      rank,\n      ROW_NUMBER() OVER (PARTITION BY id, space_id ORDER BY rank ASC) AS rn\n    FROM chain\n  )\n  SELECT\n    id,\n    space_id,\n    rank        AS effective_rank,\n    access_type AS effective_access\n  FROM ranked\n  WHERE rn = 1;\n",
       "materialized": true,
       "isExisting": false
     }

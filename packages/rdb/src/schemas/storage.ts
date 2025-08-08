@@ -226,7 +226,7 @@ export const itemWithEffectiveAccess = pgMaterializedView(
       space_id,
       access_type,
       rank,
-      ROW_NUMBER() OVER (PARTITION BY id, space_id ORDER BY rank DESC) AS rn
+      ROW_NUMBER() OVER (PARTITION BY id, space_id ORDER BY rank ASC) AS rn
     FROM chain
   )
   SELECT
