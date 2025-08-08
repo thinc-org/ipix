@@ -91,7 +91,7 @@ SIMPLE PUT OBJECT (non-multipart)
 
       return { url, method: "PUT" };
     },
-    { query: t.Object({ filename: t.String(), type: t.String() }), auth: true }
+    { query: t.Object({ filename: t.String(), type: t.String() }), auth: {allowPublic: false} }
   )
   .post(
     "/sign",
@@ -115,7 +115,7 @@ SIMPLE PUT OBJECT (non-multipart)
 
       return { url, method: "PUT" };
     },
-    { body: t.Object({ filename: t.String(), type: t.String() }) }
+    { body: t.Object({ filename: t.String(), type: t.String() }), auth: {allowPublic: false} }
   )
 
   /*
@@ -178,7 +178,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         timestamp: t.Optional(t.String()),
       }),
 
-      auth: true,
+      auth: {allowPublic: false},
     }
   )
 
@@ -254,7 +254,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         ),
       }),
 
-      auth: true,
+      auth: {allowPublic: false},
     }
   )
 
@@ -290,7 +290,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       params: t.Object({ uploadId: t.String(), partNumber: t.String() }),
       query: t.Object({ key: t.String() }),
 
-      auth: true,
+      auth: {allowPublic: false},
     }
   )
 
@@ -322,7 +322,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     {
       params: t.Object({ uploadId: t.String() }),
       query: t.Object({ key: t.String() }),
-      auth: true,
+      auth: {allowPublic: false},
     }
   )
 
@@ -362,7 +362,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       body: t.Object({
         parts: t.Array(t.Object({ PartNumber: t.Number(), ETag: t.String() })),
       }),
-      auth: true,
+      auth: {allowPublic: false},
     }
   )
 
@@ -388,7 +388,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       params: t.Object({ uploadId: t.String() }),
       query: t.Object({ key: t.String() }),
 
-      auth: true,
+      auth: {allowPublic: false},
     }
   )
 
@@ -425,7 +425,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     {
       params: t.Object({ imageKey: t.String() }),
       query: t.Object({ download: t.Optional(t.String()) }),
-      auth: true,
+      auth: {allowPublic: true},
     }
   )
 
@@ -513,7 +513,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       body: t.Object({
         imageKeys: t.Array(t.String()),
       }),
-      auth: true,
+      auth: {allowPublic: true},
     }
   )
 
@@ -547,7 +547,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     },
     {
       body: t.Object({ keys: t.Array(t.String()) }),
-      auth: true,
+      auth: {allowPublic: true},
     }
   )
   .get(
@@ -575,13 +575,13 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       return { imageKeys };
     },
     {
-      auth: true,
+      auth: {allowPublic: true},
     }
   )
   .post(
     "/download-image-keys",
     async ({ body, set }) => {
-      const { keys } = body;
+      const keys  = body.keys;
       if (!keys || keys.length == 0) {
         set.status = 400;
         return { error: "keys must not be a empty array" };
@@ -609,6 +609,6 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     },
     {
       body: t.Object({ keys: t.Array(t.String()) }),
-      auth: true,
+      auth: {allowPublic: true},
     }
   );

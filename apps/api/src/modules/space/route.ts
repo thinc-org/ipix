@@ -16,7 +16,7 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
         let queryDb = db
           .select()
           .from(storageSchema.space)
-          .where(eq(storageSchema.space.ownedBy, user.id))
+          .where(eq(storageSchema.space.ownedBy, user!.id))
           .$dynamic();
         if (query.match && query.name) {
           queryDb = withMatch(
@@ -38,7 +38,7 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
         name: t.String(),
         match: t.Enum(MatchType),
       })),
-      auth: true,
+      auth: {allowPublic: false},
     }
   )
   .post(
@@ -49,8 +49,8 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
           name: body.name,
           type: body.spaceType,
           accessType: body.accessType,
-          createdBy: user.id,
-          ownedBy: user.id,
+          createdBy: user!.id,
+          ownedBy: user!.id,
         });
         return { success: true, data: { newSpace: newSpace } };
       } catch (e) {
@@ -72,6 +72,6 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
           )
         ),
       }),
-      auth: true,
+      auth: {allowPublic: false},
     }
   );
