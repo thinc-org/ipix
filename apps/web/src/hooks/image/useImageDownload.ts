@@ -62,9 +62,22 @@ export const useImageDownload = () => {
     a.click();
     window.URL.revokeObjectURL(url);
   };
+  const handleDownload = async (keys: string[]) => {
+    if (keys.length === 0) {
+      alert("Please select at least one image.");
+      return;
+    }
+
+    if (keys.length === 1) {
+      await downloadSingleImage(keys);
+    } else {
+      await downloadMultipleImages(keys);
+    }
+  };
 
   return {
     downloadSingleImage,
     downloadMultipleImages,
+    handleDownload,
   };
 };
