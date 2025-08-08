@@ -15,6 +15,54 @@ const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
 export const itemRouter = new Elysia({ prefix: "/item" })
   .use(betterAuthMiddleware)
+  .get('/item', 
+    async ({ query, user, set }) => {
+      try {
+        const ctx = await loadAccessContext(
+          db,
+          user?.id ?? null,
+          query.spaceId
+        );
+
+        let qb = scopeItemsRead(
+          db.select().from(storageSchema.item).$dynamic(),
+          ctx,
+          {
+            parentId: query.folderId ?? null,
+            includeTrash: !!query.includeTrash,
+            name: query.searchString ?? undefined,
+            match: query.match ?? undefined
+          }
+        );
+
+        // Drizzle returns different row shapes depending on whether we joined
+        // (owner: flat item row, non-owner: { item, itemWithEffectiveAccess }).
+        // Normalize to a flat item row for a consistent API contract.
+        const rows = await qb.limit(1);
+        const items: typeof storageSchema.item.$inferSelect[] = (rows as any[]).map((r) =>
+          "item" in r ? (r.item as typeof storageSchema.item.$inferSelect) : (r as typeof storageSchema.item.$inferSelect)
+        );
+
+        const item = items[0]
+
+        return { success: true, data: { item } };
+      } catch (e) {
+        set.status = 500;
+        return { success: false, data: { error: e } };
+      }
+    },
+    {
+      auth: { allowPublic: true },
+      query: t.Object({
+        spaceId: t.String({ format: "uuid" }),
+        folderId: t.Optional(t.String({ format: "uuid" })),
+        includeTrash: t.Optional(t.Boolean({ default: false })),
+        searchString: t.Optional(t.String()),
+        match: t.Optional(t.Enum(MatchType)),
+      }),
+    }
+
+  )
   .get(
     "/ancestors",
     async ({ params, query, set, user }) => {
@@ -142,16 +190,22 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           {
             parentId: query.folderId ?? null,
             includeTrash: !!query.includeTrash,
-            name: query.name ?? undefined,
+            name: query.searchString ?? undefined,
             match: query.match ?? undefined
           }
         );
 
         qb = qb.orderBy(dirFn(orderCol), dirFn(storageSchema.item.id));
 
-        const items = await qb;
+        // Drizzle returns different row shapes depending on whether we joined
+        // (owner: flat item row, non-owner: { item, itemWithEffectiveAccess }).
+        // Normalize to a flat item row for a consistent API contract.
+        const rows = await qb;
+        const items: typeof storageSchema.item.$inferSelect[] = (rows as any[]).map((r) =>
+          "item" in r ? (r.item as typeof storageSchema.item.$inferSelect) : (r as typeof storageSchema.item.$inferSelect)
+        );
 
-        return { success: true, data: { items: items } };
+        return { success: true, data: { items } };
       } catch (e) {
         set.status = 500;
         return { success: false, data: { error: e } };
@@ -167,7 +221,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           t.Enum({ asc: "asc", desc: "desc" }, { default: "asc" })
         ),
         includeTrash: t.Optional(t.Boolean({ default: false })),
-        name: t.Optional(t.String()),
+        searchString: t.Optional(t.String()),
         match: t.Optional(t.Enum(MatchType)),
       }),
     }
