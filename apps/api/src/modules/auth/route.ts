@@ -105,13 +105,26 @@ export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
   })
   .mount(auth.handler)
   .macro({
-    auth: {
+    // Boolean or object config; context always includes user/session (nullable when unauthenticated)
+    auth: (config: { allowPublic: boolean }) => ({
       async resolve({ status, request: { headers } }) {
-        const session = await auth.api.getSession({
-          headers,
-        });
+        let allowPublic: boolean;
+        if (typeof config === "boolean") {
+          // true => require auth; false => public allowed
+          allowPublic = config === false;
+        } else {
+          allowPublic = config.allowPublic;
+        }
+
+        const session = await auth.api.getSession({ headers });
 
         if (!session) {
+          if (allowPublic) {
+            return {
+              user: null,
+              session: null,
+            };
+          }
           return status(401);
         }
 
@@ -120,5 +133,5 @@ export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
           session: session.session,
         };
       },
-    },
+    }),
   });
