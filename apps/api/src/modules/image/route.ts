@@ -229,10 +229,10 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       const contextPrefix =
         context === "faculty-photos" ? "faculty" : "uploads";
       const datePrefix = new Date().toISOString().slice(0, 10);
-      // const key = `${contextPrefix}/${datePrefix}/${crypto.randomUUID()}-${filename}`;
+      const key = `${contextPrefix}/${datePrefix}/${crypto.randomUUID()}-${filename}`;
 
       //FOR MVP 1.0
-      const key = `${crypto.randomUUID()}-${filename}`;
+      // const key = `${crypto.randomUUID()}-${filename}`;
 
       // Clean and merge provided metadata with batch-specific metadata
       const cleanedMetadata: Record<string, string> = {};
