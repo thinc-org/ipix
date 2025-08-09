@@ -27,7 +27,8 @@ import { createDb } from "../../drizzle/client.js";
 import { storageSchema } from "../../../../../packages/rdb/src/schema.js";
 import { item } from "../../../../../packages/rdb/src/schemas/storage.js";
 import { eq, inArray } from "drizzle-orm";
-const generateKey = (fname: string) => `${crypto.randomUUID()}-${fname}`;
+
+const generateKey = () => Bun.randomUUIDv7();
 const isValidPartNumber = (n: number) =>
   Number.isInteger(n) && n >= 1 && n <= 10_000;
 
@@ -78,7 +79,7 @@ SIMPLE PUT OBJECT (non-multipart)
         return { error: "filename & type required" };
       }
 
-      const key = generateKey(filename);
+      const key = generateKey();
       const url = await getSignedUrl(
         s3,
         new PutObjectCommand({
@@ -102,7 +103,7 @@ SIMPLE PUT OBJECT (non-multipart)
         return { error: "filename & type required" };
       }
 
-      const key = generateKey(filename);
+      const key = generateKey();
       const url = await getSignedUrl(
         s3,
         new PutObjectCommand({
@@ -125,12 +126,11 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
   /* Batch sign - optimized for bulk uploads */
   .post(
     "/batch-sign",
-    async ({ body, set }) => {
-      const { filename, type, size, context, timestamp } = body as {
+    async ({ body, set, user }) => {
+      const { filename, type, size } = body as {
         filename?: string;
         type?: string;
         size?: number;
-        context?: string;
         timestamp?: string;
       };
 
@@ -139,14 +139,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         return { error: "filename & type required" };
       }
 
-      // Generate key with context for better organization
-      const contextPrefix =
-        context === "faculty-photos" ? "faculty" : "uploads";
-      const datePrefix = timestamp || new Date().toISOString().slice(0, 10);
-      const key = `${contextPrefix}/${datePrefix}/${crypto.randomUUID()}-${filename}`;
-
-      //FOR MVP 1.0
-      // const key = `${crypto.randomUUID()}-${filename}`;
+      const key = generateKey()
 
       const url = await getSignedUrl(
         s3,
@@ -154,13 +147,8 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
           Bucket: s3Bucket,
           Key: key,
           ContentType: type,
-          // Add metadata for batch tracking
           Metadata: {
-            "upload-context": sanitizeHeaderValue(context || "general"),
-            "batch-timestamp": sanitizeHeaderValue(
-              timestamp || new Date().toISOString()
-            ),
-            "original-filename": sanitizeHeaderValue(filename),
+            "uploader-user-id": user!.id,
             "file-size": sanitizeHeaderValue(size?.toString() || "0"),
           },
         }),
@@ -174,8 +162,6 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         filename: t.String(),
         type: t.String(),
         size: t.Optional(t.Number()),
-        context: t.Optional(t.String()),
-        timestamp: t.Optional(t.String()),
       }),
 
       auth: {allowPublic: false},
