@@ -151,3 +151,17 @@ function patternBuilder(matchColumn: PgColumn, searchString: string, matchType: 
     }
   }
 }
+
+/**
+ * This is a fix until drizzle-orm supports length for varchar.
+ * See here: https://github.com/drizzle-team/drizzle-orm/issues/1441
+ */
+export const getColumnLength = (column: PgColumn) => {
+  const { length } = column as { length?: unknown };
+
+  if (typeof length !== "number") {
+    throw new TypeError(`Column ${column.name} does not have a length`);
+  }
+
+  return length;
+};
