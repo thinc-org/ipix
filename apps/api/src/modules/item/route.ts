@@ -4,6 +4,7 @@ import { createDb } from "../../drizzle/client";
 import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
 import {
+  getColumnLength,
   loadAccessContext,
   MatchType,
   scopeItemRead,
@@ -57,7 +58,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
         spaceId: t.String({ format: "uuid" }),
         folderId: t.Optional(t.String({ format: "uuid" })),
         includeTrash: t.Optional(t.Boolean({ default: false })),
-        searchString: t.Optional(t.String()),
+        searchString: t.Optional(t.String({ maxLength: getColumnLength(storageSchema.item.name)})),
         match: t.Optional(t.Enum(MatchType)),
       }),
     }
@@ -154,7 +155,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
       body: t.Object({
         spaceId: t.String({ format: "uuid" }),
         parentId: t.Nullable(t.String({ format: "uuid" })),
-        name: t.String({}),
+        name: t.String({ maxLength: getColumnLength(storageSchema.item.name)}),
       }),
     }
   )
@@ -221,7 +222,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           t.Enum({ asc: "asc", desc: "desc" }, { default: "asc" })
         ),
         includeTrash: t.Optional(t.Boolean({ default: false })),
-        searchString: t.Optional(t.String()),
+        searchString: t.Optional(t.String({ maxLength: getColumnLength(storageSchema.item.name)})),
         match: t.Optional(t.Enum(MatchType)),
       }),
     }
