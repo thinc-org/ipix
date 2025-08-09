@@ -872,14 +872,6 @@
             "owned_by",
             "name"
           ]
-        },
-        "uq_space_team_name": {
-          "name": "uq_space_team_name",
-          "nullsNotDistinct": false,
-          "columns": [
-            "type",
-            "name"
-          ]
         }
       },
       "policies": {},

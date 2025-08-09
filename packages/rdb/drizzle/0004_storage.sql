@@ -52,8 +52,7 @@ CREATE TABLE "space" (
 	"access_type" "access_type" NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "uq_space_owner_name" UNIQUE("owned_by","name"),
-	CONSTRAINT "uq_space_team_name" UNIQUE("type","name")
+	CONSTRAINT "uq_space_owner_name" UNIQUE("owned_by","name")
 );
 --> statement-breakpoint
 ALTER TABLE "account" ALTER COLUMN "id" SET DATA TYPE uuid;--> statement-breakpoint
