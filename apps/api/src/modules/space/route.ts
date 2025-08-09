@@ -3,7 +3,7 @@ import { betterAuthMiddleware } from "../auth/route";
 import { createDb } from "../../drizzle/client";
 import { eq } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
-import { MatchType, withMatch } from "../../utils/queryHelper";
+import { getColumnLength, MatchType, withMatch } from "../../utils/queryHelper";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
@@ -35,7 +35,7 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
     },
     {
       query: t.Optional(t.Object({
-        name: t.String(),
+        name: t.String({ maxLength: getColumnLength(storageSchema.space.name)}),
         match: t.Enum(MatchType),
       })),
       auth: {allowPublic: false},
@@ -60,7 +60,7 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
     },
     {
       body: t.Object({
-        name: t.String({ maxLength: storageSchema.space.name.dataType.length }),
+        name: t.String({ maxLength: getColumnLength(storageSchema.space.name)}),
         spaceType: t.Enum(
           Object.fromEntries(
             storageSchema.space.type.enumValues.map((val) => [val, val])
