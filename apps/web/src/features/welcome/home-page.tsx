@@ -1,44 +1,43 @@
 import { Header } from "@/components/base-component/header";
 import { Sidebar } from "@/components/base-component/sidebar";
-import { DisplayFile } from "@/components/image-folder/display-file";
-import { Folder } from "@/components/image-folder/folder";
-import { mockFiles, mockFolders } from "@/utils/mock/mock";
+import { ImageGallery } from "@/components/image-folder/image-gallery";
 import { useAuth } from "@/lib/better-auth/auth-hooks";
-import { AddNewButton } from "@/components/image-folder/add-new-button";
+import { useImageSelection } from "@/hooks/image/useImageSelection";
+import { FileToolBar } from "@/components/image-folder/file-tool-bar";
 
 export function HomePage() {
   const { session } = useAuth();
-  const userInfo = {
-    email: session?.user.email ?? undefined,
-    name: session?.user.name ?? undefined,
-    imageProfile: session?.user.image ?? undefined,
-    role: "Admin",
-  };
+  const { isSelectable, selectedImageKeys, toggleSelectable, toggleCheckbox } =
+    useImageSelection();
+
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <Sidebar
-        userInfo={{
-          email: userInfo.email,
-          imageProfile: userInfo.imageProfile,
-        }}
-      />
+      <div className="flex flex-1 gap-2">
+        <Sidebar
+          userInfo={{
+            email: session?.user.email ?? undefined,
+            imageProfile: session?.user.image ?? undefined,
+          }}
+        />
 
-      <div className="absolute top-[10vh] right-0 w-[80vw] px-8">
-        <div className="flex justify-end py-8">
-          <AddNewButton />
-        </div>
+        <div className="flex-1 px-8 py-[10vh]">
+          <FileToolBar
+            isSelectable={isSelectable}
+            selectedCount={selectedImageKeys.length}
+            selectedImageKeys={selectedImageKeys}
+            onCancel={toggleSelectable}
+            onDelete={() => {
+              console.log("delete");
+            }}
+            onToggleSelect={toggleSelectable}
+          />
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 gap-x-16">
-          {mockFolders.map((folder) => (
-            <Folder key={folder.id} folder={folder} />
-          ))}
-          {mockFiles.map((file) => (
-            <DisplayFile
-              key={file.id}
-              file={{ ...file, uploadDate: new Date() }}
-            />
-          ))}
+          <ImageGallery
+            isSelectable={isSelectable}
+            selectedImageKeys={selectedImageKeys}
+            onToggleCheckbox={toggleCheckbox}
+          />
         </div>
       </div>
     </div>

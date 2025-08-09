@@ -17,7 +17,6 @@ import { Route as UploadIndexRouteImport } from './routes/upload/index'
 import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
 import { Route as SharewithmeIndexRouteImport } from './routes/sharewithme/index'
 import { Route as MyipixIndexRouteImport } from './routes/myipix/index'
-import { Route as DownloadIndexRouteImport } from './routes/download/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo.tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo.table'
 import { Route as DemoStoreRouteImport } from './routes/demo.store'
@@ -57,11 +56,6 @@ const SharewithmeIndexRoute = SharewithmeIndexRouteImport.update({
 const MyipixIndexRoute = MyipixIndexRouteImport.update({
   id: '/myipix/',
   path: '/myipix/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DownloadIndexRoute = DownloadIndexRouteImport.update({
-  id: '/download/',
-  path: '/download/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
@@ -111,7 +105,6 @@ export interface FileRoutesByFullPath {
   '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/download': typeof DownloadIndexRoute
   '/myipix': typeof MyipixIndexRoute
   '/sharewithme': typeof SharewithmeIndexRoute
   '/sign-in': typeof SignInIndexRoute
@@ -127,7 +120,6 @@ export interface FileRoutesByTo {
   '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/download': typeof DownloadIndexRoute
   '/myipix': typeof MyipixIndexRoute
   '/sharewithme': typeof SharewithmeIndexRoute
   '/sign-in': typeof SignInIndexRoute
@@ -144,7 +136,6 @@ export interface FileRoutesById {
   '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/download/': typeof DownloadIndexRoute
   '/myipix/': typeof MyipixIndexRoute
   '/sharewithme/': typeof SharewithmeIndexRoute
   '/sign-in/': typeof SignInIndexRoute
@@ -162,7 +153,6 @@ export interface FileRouteTypes {
     | '/demo/store'
     | '/demo/table'
     | '/demo/tanstack-query'
-    | '/download'
     | '/myipix'
     | '/sharewithme'
     | '/sign-in'
@@ -178,7 +168,6 @@ export interface FileRouteTypes {
     | '/demo/store'
     | '/demo/table'
     | '/demo/tanstack-query'
-    | '/download'
     | '/myipix'
     | '/sharewithme'
     | '/sign-in'
@@ -194,7 +183,6 @@ export interface FileRouteTypes {
     | '/demo/store'
     | '/demo/table'
     | '/demo/tanstack-query'
-    | '/download/'
     | '/myipix/'
     | '/sharewithme/'
     | '/sign-in/'
@@ -211,7 +199,6 @@ export interface RootRouteChildren {
   DemoStoreRoute: typeof DemoStoreRoute
   DemoTableRoute: typeof DemoTableRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
-  DownloadIndexRoute: typeof DownloadIndexRoute
   MyipixIndexRoute: typeof MyipixIndexRoute
   SharewithmeIndexRoute: typeof SharewithmeIndexRoute
   SignInIndexRoute: typeof SignInIndexRoute
@@ -287,13 +274,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyipixIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/download/': {
-      id: '/download/'
-      path: '/download'
-      fullPath: '/download'
-      preLoaderRoute: typeof DownloadIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/demo/tanstack-query': {
       id: '/demo/tanstack-query'
       path: '/demo/tanstack-query'
@@ -363,7 +343,6 @@ const rootRouteChildren: RootRouteChildren = {
   DemoStoreRoute: DemoStoreRoute,
   DemoTableRoute: DemoTableRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
-  DownloadIndexRoute: DownloadIndexRoute,
   MyipixIndexRoute: MyipixIndexRoute,
   SharewithmeIndexRoute: SharewithmeIndexRoute,
   SignInIndexRoute: SignInIndexRoute,
