@@ -8,8 +8,11 @@
 
 ## How to migrate Better-Auth
 
-1. run `npx @better-auth/cli generate --config ..\..\apps\api\src\modules\auth\route.ts --output ./src/schemas/auth.ts`
-2. cd to this directory (`cd ./packages/rdb` if you're at root)
-3. run `npx drizzle-kit migrate` to apply the migration.
-4. (IF 3 DOESN'T WORK!!!) run `npx drizzle-kit generate` to generate the migration file.
-5. Done!
+1. cd to this directory (`cd ./packages/rdb` if you're at root)
+2. run `npx drizzle-kit migrate` to apply the migration.
+3. Done!
+
+## Override Command
+
+- run `npx drizzle-kit generate` to generate the migration file.
+- run `npx @better-auth/cli generate --config ..\..\apps\api\src\modules\auth\route.ts --output ./src/schemas/auth.ts` to generate schemas file
