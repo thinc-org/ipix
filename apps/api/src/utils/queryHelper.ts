@@ -121,6 +121,7 @@ export const MatchType = {
   EXACT: "exact",
   CONTAINS: "contains",
   STARTS_WITH: "startsWith",
+  ID: "id"
 } as const;
 export type MatchType = (typeof MatchType)[keyof typeof MatchType];
 
@@ -143,6 +144,9 @@ function patternBuilder(matchColumn: PgColumn, searchString: string, matchType: 
 
     case MatchType.STARTS_WITH:
       return like(matchColumn, `${searchString}%`);
+
+    case MatchType.ID:
+      return eq(matchColumn, searchString) // This should be rewritten ASAP
 
     default: {
       // Exhaustiveness guard – makes sure we handled every literal
