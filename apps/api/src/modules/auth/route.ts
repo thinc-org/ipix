@@ -1,25 +1,47 @@
 import { Context, Elysia, t } from "elysia";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { openAPI } from "better-auth/plugins";
+import { createAuthMiddleware, openAPI } from "better-auth/plugins";
 import { createDb } from "../../drizzle/client.js";
-import { authSchema } from "@repo/rdb/schema";
+import { authSchema, storageSchema } from "@repo/rdb/schema";
+
+const db = createDb({databaseUrl: process.env.DATABASE_URL,})
 
 export const auth = betterAuth({
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user, ctx) => {
+          await db.transaction(async (tx) => {
+            const [defaultSpace] = await tx.insert(storageSchema.space).values({
+              name: 'myipix',
+              type: 'personal',
+              accessType: 'owner',
+              createdBy: user.id,
+              ownedBy: user.id
+            }).returning()
+            const rootFolder = await tx.insert(storageSchema.item).values({
+              name: defaultSpace.id,
+              spaceId: defaultSpace.id,
+              parentId: null,
+              createdBy: user.id,
+              accessType: 'owner'
+            })
+          })
+        }
+      }
+    }
+  },
   baseURL: "http://localhost:3000/auth",
   trustedOrigins: ["http://localhost:3000", "http://[::1]:3000"],
   advanced: {
     defaultCookieAttributes: {
       sameSite: "lax",
-      secure: false, // Set to true in production with HTTPS
-    },
-    redirectProxy: {
-      enabled: true,
-      url: "http://localhost:3000/auth?callback=true", // Add a query param to identify callback
+      secure: false, // TODO Set to true in production with HTTPS
     },
     database: {
       generateId: (options: {}) => {
-        return crypto.randomUUID();
+        return Bun.randomUUIDv7();
       },
     },
   },
