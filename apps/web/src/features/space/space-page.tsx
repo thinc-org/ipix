@@ -1,8 +1,6 @@
 import { Header } from "@/components/base-component/header";
 import { Sidebar } from "@/components/base-component/sidebar";
-import { DisplayFile } from "@/components/image-folder/display-file";
 import { Folder } from "@/components/image-folder/folder";
-import { mockFiles, mockFolders } from "@/utils/mock/mock";
 import { useAuth } from "@/lib/better-auth/auth-hooks";
 import { AddNewButton } from "@/components/image-folder/add-new-button";
 import { useItemsByFolder, useRootFolder } from "../item/hook";
@@ -31,9 +29,11 @@ export function SpacePage({spaceInfo}: {
       rootFolder = rootQuery.data?.data?.data.item
   }
 
+  const effectiveFolderId = spaceInfo.folderId ?? rootFolder?.id;
+
   const itemsQuery = useItemsByFolder({
     spaceId: spaceInfo.spaceId,
-    folderId: spaceInfo.folderId ? spaceInfo.folderId : rootFolder?.id,
+    folderId: effectiveFolderId,
   })
 
   return (
@@ -56,7 +56,7 @@ export function SpacePage({spaceInfo}: {
           <div className="mb-4 text-sm text-muted-foreground">Loading space…</div>
         )}
         <div className="flex justify-end py-8">
-          <AddNewButton />
+          <AddNewButton spaceId={spaceInfo.spaceId} parentId={effectiveFolderId} />
         </div>
 
         {itemsQuery.isFetching && (

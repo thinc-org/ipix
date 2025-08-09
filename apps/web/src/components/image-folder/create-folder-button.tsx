@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -10,25 +10,66 @@ import {
 } from "../ui/dialog";
 import { buttonVariants } from "../ui/button";
 import type { VariantProps } from "class-variance-authority";
+import { createFolderMutation } from "@/features/item/hook";
+import { useTransferStore } from "@/stores/fileStores";
 
 type ButtonVariant = VariantProps<typeof buttonVariants>["variant"];
 
-export function CreateFolderButton({ variant }: { variant?: ButtonVariant }) {
+export function CreateFolderButton({
+  variant,
+  spaceId,
+  parentId,
+  withTrigger = true,
+}: {
+  variant?: ButtonVariant;
+  spaceId: string;
+  parentId?: string;
+  withTrigger?: boolean;
+}) {
   const inputFolderName = useRef<HTMLInputElement>(null);
-  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const open = useTransferStore((s) => s.ui.newFolderOpen);
+  const openDialog = useTransferStore((s) => s.openNewFolder);
+  const closeDialog = useTransferStore((s) => s.closeNewFolder);
+
+  // Allow creating at root (no parentId) by sending null to API
+  const canCreate = useMemo(() => Boolean(spaceId), [spaceId]);
+  const mutation = createFolderMutation();
+
   const createFolder = () => {
-    const folderName = inputFolderName.current?.value || "";
-    //create folder
-    if (folderName) {
-      console.log(`Folder Name: ${folderName}`);
-      setOpen(false);
-    }
+    const folderName = name.trim();
+    if (!canCreate || !folderName) return;
+    mutation.mutate(
+      { spaceId, name: folderName, parentId: parentId ?? null },
+      {
+        onSuccess: () => {
+          // clear field; dialog will be closed by mutation's onSuccess in hook.ts
+          setName("");
+          if (inputFolderName.current) inputFolderName.current.value = "";
+        },
+      }
+    );
   };
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant={variant}>New Folder</Button>
-      </DialogTrigger>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (v) openDialog();
+        else {
+          closeDialog();
+          // reset input when closed
+          setName("");
+          if (inputFolderName.current) inputFolderName.current.value = "";
+        }
+      }}
+    >
+      {withTrigger && (
+        <DialogTrigger asChild>
+          <Button variant={variant} disabled={!canCreate}>
+            New Folder
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Folder</DialogTitle>
@@ -36,6 +77,15 @@ export function CreateFolderButton({ variant }: { variant?: ButtonVariant }) {
             ref={inputFolderName}
             type="text"
             className="gap-10 p-2 rounded-md border-[0.5px] border-black mt-8"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                createFolder();
+              }
+            }}
+            autoFocus
           />
         </DialogHeader>
         <div className="flex justify-end space-x-2 mt-4">
@@ -48,8 +98,9 @@ export function CreateFolderButton({ variant }: { variant?: ButtonVariant }) {
             variant="ghost"
             className="text-blue-500 text-sm"
             onClick={createFolder}
+            disabled={!canCreate || !name.trim() || mutation.isPending}
           >
-            Create
+            {mutation.isPending ? "Creating…" : "Create"}
           </Button>
         </div>
       </DialogContent>

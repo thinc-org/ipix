@@ -1,11 +1,20 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { Button } from "../ui/button";
 import { CreateFolderButton } from ".";
 import { useOnClickOutside } from "usehooks-ts";
+import { useTransferStore } from "@/stores/fileStores";
 
-export function AddNewButton() {
+export function AddNewButton({
+  spaceId,
+  parentId,
+}: {
+  spaceId: string;
+  parentId?: string;
+}) {
   const [menuVisible, setMenuVisible] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const canCreate = useMemo(() => Boolean(spaceId && parentId), [spaceId, parentId]);
+  const openNewFolder = useTransferStore((s) => s.openNewFolder);
 
   useOnClickOutside(menuRef as React.RefObject<HTMLElement>, () => {
     setMenuVisible(false);
@@ -32,7 +41,15 @@ export function AddNewButton() {
                 alt="Rename"
                 className="w-5 h-5"
               />
-              <CreateFolderButton variant="menu" />
+              <Button
+                variant="menu"
+                onClick={() => {
+                  setMenuVisible(false);
+                  openNewFolder();
+                }}
+              >
+                New Folder
+              </Button>
             </div>
             <div className="border-t" />
             <div className="flex items-center px-2 py-1 hover:bg-gray-100 rounded-b-xl">
@@ -41,11 +58,19 @@ export function AddNewButton() {
                 alt="Delete"
                 className="w-5 h-5"
               />
-              <Button variant="menu">File Upload</Button>
+              <Button variant="menu" disabled={!canCreate}>File Upload</Button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Render the folder dialog outside the dropdown so it doesn't unmount with the menu */}
+      <CreateFolderButton
+        withTrigger={false}
+        variant="menu"
+        spaceId={spaceId}
+        parentId={parentId}
+      />
     </div>
   );
 }

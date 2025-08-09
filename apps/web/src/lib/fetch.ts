@@ -1,16 +1,23 @@
 import { treaty } from "@elysiajs/eden";
 import type { App } from "@repo/api";
 
-const API_BASE_URL = process.env.API_BASE_URL ?? "localhost:20257";
+// Prefer Vite env if available, then process.env (for SSR/tests), else default.
+const VITE_URL = import.meta.env.VITE_API_BASE_URL as
+  | string
+  | undefined;
+const NODE_URL = (process as any)?.env?.API_BASE_URL as string | undefined;
 
-if (!API_BASE_URL) {
-  throw new Error('API_BASE_URL is required but not defined')
+let API_BASE_URL = VITE_URL ?? NODE_URL ?? "http://localhost:20257";
+
+// Ensure URL has protocol for fetch
+if (!/^https?:\/\//i.test(API_BASE_URL)) {
+  API_BASE_URL = `http://${API_BASE_URL}`;
 }
 
 const app = treaty<App>(API_BASE_URL, {
-    fetch: {
-        credentials: 'include'
-    }
+  fetch: {
+    credentials: "include",
+  },
 });
 
-export default app
+export default app;
