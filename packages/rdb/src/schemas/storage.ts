@@ -10,7 +10,6 @@ import {
   unique,
   index,
   check,
-  foreignKey,
   uniqueIndex,
   smallint,
   pgMaterializedView,
@@ -22,11 +21,11 @@ import { user } from "./auth";
 const spaceTypeEnum = pgEnum("space_type", ["personal", "team"]);
 const accessTypeEnum = pgEnum("access_type", ["owner", "team", "public"]);
 const itemTypeEnum = pgEnum("item_type", ["file", "folder"]);
+const transferStatus = pgEnum("transfer_status", ["initiated", "in_progress", "completed", "aborted", "failed"])
 
 /* SPACE */
 const spaceConstraints = (t: any) => [
   unique("uq_space_owner_name").on(t.ownedBy, t.name),
-  unique("uq_space_team_name").on(t.type, t.name),
   index("idx_space_created_by").on(t.createdBy),
 ];
 
@@ -132,7 +131,9 @@ export const item = pgTable(
       .primaryKey()
       .default(sql`uuidv7_sub_ms()`),
     /* TEMP FOR ALPHA: previewId */
-    previewId: uuid("preview_id").default(sql`uuidv7_sub_ms()`).notNull(),
+    previewId: uuid("preview_id")
+      .default(sql`uuidv7_sub_ms()`)
+      .notNull(),
     parentId: uuid("parent_id").references((): any => item.id, {
       onDelete: "cascade",
     }),
@@ -189,6 +190,15 @@ export const accessRank = pgTable(
   },
   accessRankConstraints
 );
+
+export const uploadSession = pgTable("upload_session", {
+  itemId: uuid('item_id'),
+  key: uuid('key').notNull().unique().primaryKey(),
+  uploadId: varchar('upload_id', { length: 255 }),
+  status: transferStatus(),
+  expectedSize: bigint("size_byte", { mode: "bigint" }),
+  contentType: varchar('content_type', { length: 255 })
+});
 
 /* EFFECTIVE-ACCESS MATERIALISED VIEW */
 export const itemWithEffectiveAccess = pgMaterializedView(
