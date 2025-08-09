@@ -27,7 +27,7 @@ import { PassThrough, Readable } from "node:stream";
 import { createDb } from "../../drizzle/client.js";
 import { storageSchema } from "../../../../../packages/rdb/src/schema.js";
 import { item } from "../../../../../packages/rdb/src/schemas/storage.js";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { loadAccessContext } from "../../utils/queryHelper.js";
 
 const generateKey = () => Bun.randomUUIDv7();
@@ -687,5 +687,34 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         img: t.Array(t.Object({ key: t.String(), name: t.String() })),
       }),
       auth: { allowPublic: false },
+    }
+  )
+  .post(
+    "/soft-delete-image",
+    async ({ body, set, query, user }) => {
+      const { keys } = body;
+      if (!keys || keys.length == 0) {
+        set.status = 400;
+        return { error: "keys must not be a empty array" };
+      }
+      const db = createDb();
+      const ctx = await loadAccessContext(db, user?.id ?? null, query.spaceId);
+      if (!ctx.isOwner) {
+        return {
+          status: 403,
+          error: "You do not have permission to delete images in this space.",
+        };
+      }
+      const softDeleted = await db
+        .update(item)
+        .set({ trashedDeleteDT: sql`NOW()` })
+        .where(inArray(item.id, keys))
+        .returning();
+
+      return { success: true, data: { deleteImage: softDeleted } };
+    },
+    {
+      body: t.Object({ keys: t.Array(t.String()) }),
+      auth: { allowPublic: true },
     }
   );
