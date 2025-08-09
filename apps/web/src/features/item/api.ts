@@ -17,6 +17,12 @@ export type ItemsByFolderQuery = {
   match?: MatchType;
 };
 
+export type CreateFolderType = {
+  spaceId: string,
+  parentId: string | null,
+  name: string
+}
+
 export async function getAncestors(query: AncestorsQuery) {
   // Only send defined fields to avoid "undefined is not assignable to string"
   return app.item.ancestors.get({ query: compact(query) });
@@ -32,6 +38,10 @@ export async function getRootFolder(spaceId: string) {
 
 export async function getItemsByFolder(query: ItemsByFolderQuery) {
   return app.item.items.get({ query: compact(query) })
+}
+
+export async function createFolder(body: CreateFolderType) {
+  return app.item.folder.post(body)
 }
 
 function compact<T extends Record<string, unknown>>(obj: T): T {

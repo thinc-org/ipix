@@ -14,16 +14,19 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UploadIndexRouteImport } from './routes/upload/index'
+import { Route as SpaceIndexRouteImport } from './routes/space/index'
 import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
 import { Route as SharewithmeIndexRouteImport } from './routes/sharewithme/index'
 import { Route as MyipixIndexRouteImport } from './routes/myipix/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo.tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo.table'
 import { Route as DemoStoreRouteImport } from './routes/demo.store'
+import { Route as SpaceSpaceIdIndexRouteImport } from './routes/space/$spaceId/index'
 import { Route as DemoStartServerFuncsRouteImport } from './routes/demo.start.server-funcs'
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo.start.api-request'
 import { Route as DemoFormSimpleRouteImport } from './routes/demo.form.simple'
 import { Route as DemoFormAddressRouteImport } from './routes/demo.form.address'
+import { Route as SpaceSpaceIdFFolderIdRouteImport } from './routes/space/$spaceId/f/$folderId'
 import { ServerRoute as ApiDemoNamesServerRouteImport } from './routes/api.demo-names'
 
 const rootServerRouteImport = createServerRootRoute()
@@ -41,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
 const UploadIndexRoute = UploadIndexRouteImport.update({
   id: '/upload/',
   path: '/upload/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpaceIndexRoute = SpaceIndexRouteImport.update({
+  id: '/space/',
+  path: '/space/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInIndexRoute = SignInIndexRouteImport.update({
@@ -73,6 +81,11 @@ const DemoStoreRoute = DemoStoreRouteImport.update({
   path: '/demo/store',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SpaceSpaceIdIndexRoute = SpaceSpaceIdIndexRouteImport.update({
+  id: '/space/$spaceId/',
+  path: '/space/$spaceId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemoStartServerFuncsRoute = DemoStartServerFuncsRouteImport.update({
   id: '/demo/start/server-funcs',
   path: '/demo/start/server-funcs',
@@ -93,6 +106,11 @@ const DemoFormAddressRoute = DemoFormAddressRouteImport.update({
   path: '/demo/form/address',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SpaceSpaceIdFFolderIdRoute = SpaceSpaceIdFFolderIdRouteImport.update({
+  id: '/space/$spaceId/f/$folderId',
+  path: '/space/$spaceId/f/$folderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDemoNamesServerRoute = ApiDemoNamesServerRouteImport.update({
   id: '/api/demo-names',
   path: '/api/demo-names',
@@ -108,11 +126,14 @@ export interface FileRoutesByFullPath {
   '/myipix': typeof MyipixIndexRoute
   '/sharewithme': typeof SharewithmeIndexRoute
   '/sign-in': typeof SignInIndexRoute
+  '/space': typeof SpaceIndexRoute
   '/upload': typeof UploadIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
+  '/space/$spaceId': typeof SpaceSpaceIdIndexRoute
+  '/space/$spaceId/f/$folderId': typeof SpaceSpaceIdFFolderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -123,11 +144,14 @@ export interface FileRoutesByTo {
   '/myipix': typeof MyipixIndexRoute
   '/sharewithme': typeof SharewithmeIndexRoute
   '/sign-in': typeof SignInIndexRoute
+  '/space': typeof SpaceIndexRoute
   '/upload': typeof UploadIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
+  '/space/$spaceId': typeof SpaceSpaceIdIndexRoute
+  '/space/$spaceId/f/$folderId': typeof SpaceSpaceIdFFolderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -139,11 +163,14 @@ export interface FileRoutesById {
   '/myipix/': typeof MyipixIndexRoute
   '/sharewithme/': typeof SharewithmeIndexRoute
   '/sign-in/': typeof SignInIndexRoute
+  '/space/': typeof SpaceIndexRoute
   '/upload/': typeof UploadIndexRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
+  '/space/$spaceId/': typeof SpaceSpaceIdIndexRoute
+  '/space/$spaceId/f/$folderId': typeof SpaceSpaceIdFFolderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -156,11 +183,14 @@ export interface FileRouteTypes {
     | '/myipix'
     | '/sharewithme'
     | '/sign-in'
+    | '/space'
     | '/upload'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
+    | '/space/$spaceId'
+    | '/space/$spaceId/f/$folderId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -171,11 +201,14 @@ export interface FileRouteTypes {
     | '/myipix'
     | '/sharewithme'
     | '/sign-in'
+    | '/space'
     | '/upload'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
+    | '/space/$spaceId'
+    | '/space/$spaceId/f/$folderId'
   id:
     | '__root__'
     | '/'
@@ -186,11 +219,14 @@ export interface FileRouteTypes {
     | '/myipix/'
     | '/sharewithme/'
     | '/sign-in/'
+    | '/space/'
     | '/upload/'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
+    | '/space/$spaceId/'
+    | '/space/$spaceId/f/$folderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,11 +238,14 @@ export interface RootRouteChildren {
   MyipixIndexRoute: typeof MyipixIndexRoute
   SharewithmeIndexRoute: typeof SharewithmeIndexRoute
   SignInIndexRoute: typeof SignInIndexRoute
+  SpaceIndexRoute: typeof SpaceIndexRoute
   UploadIndexRoute: typeof UploadIndexRoute
   DemoFormAddressRoute: typeof DemoFormAddressRoute
   DemoFormSimpleRoute: typeof DemoFormSimpleRoute
   DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
   DemoStartServerFuncsRoute: typeof DemoStartServerFuncsRoute
+  SpaceSpaceIdIndexRoute: typeof SpaceSpaceIdIndexRoute
+  SpaceSpaceIdFFolderIdRoute: typeof SpaceSpaceIdFFolderIdRoute
 }
 export interface FileServerRoutesByFullPath {
   '/api/demo-names': typeof ApiDemoNamesServerRoute
@@ -253,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UploadIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/space/': {
+      id: '/space/'
+      path: '/space'
+      fullPath: '/space'
+      preLoaderRoute: typeof SpaceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in/': {
       id: '/sign-in/'
       path: '/sign-in'
@@ -295,6 +341,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoStoreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/space/$spaceId/': {
+      id: '/space/$spaceId/'
+      path: '/space/$spaceId'
+      fullPath: '/space/$spaceId'
+      preLoaderRoute: typeof SpaceSpaceIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demo/start/server-funcs': {
       id: '/demo/start/server-funcs'
       path: '/demo/start/server-funcs'
@@ -323,6 +376,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoFormAddressRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/space/$spaceId/f/$folderId': {
+      id: '/space/$spaceId/f/$folderId'
+      path: '/space/$spaceId/f/$folderId'
+      fullPath: '/space/$spaceId/f/$folderId'
+      preLoaderRoute: typeof SpaceSpaceIdFFolderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 declare module '@tanstack/react-start/server' {
@@ -346,11 +406,14 @@ const rootRouteChildren: RootRouteChildren = {
   MyipixIndexRoute: MyipixIndexRoute,
   SharewithmeIndexRoute: SharewithmeIndexRoute,
   SignInIndexRoute: SignInIndexRoute,
+  SpaceIndexRoute: SpaceIndexRoute,
   UploadIndexRoute: UploadIndexRoute,
   DemoFormAddressRoute: DemoFormAddressRoute,
   DemoFormSimpleRoute: DemoFormSimpleRoute,
   DemoStartApiRequestRoute: DemoStartApiRequestRoute,
   DemoStartServerFuncsRoute: DemoStartServerFuncsRoute,
+  SpaceSpaceIdIndexRoute: SpaceSpaceIdIndexRoute,
+  SpaceSpaceIdFFolderIdRoute: SpaceSpaceIdFFolderIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

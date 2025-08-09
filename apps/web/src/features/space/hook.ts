@@ -4,7 +4,7 @@ import type { MatchType } from "../../../../api/src/utils/queryHelper";
 import * as spaceApi from './api';
 import { spaceKeys } from './keys';
 
-export function useAssociatedSpace(params?: { name?: string; match?: MatchType }) {
+export function useAssociatedSpace(params?: { searchString?: string; match?: MatchType }) {
   return useQuery({
     queryKey: spaceKeys.associated(params),
     queryFn: () => spaceApi.getAssociatedSpace(params),
@@ -12,7 +12,7 @@ export function useAssociatedSpace(params?: { name?: string; match?: MatchType }
   });
 }
 
-export function useIsAssociatedWithSpace(params?: { name?: string; match?: MatchType }) {
+export function useIsAssociatedWithSpace(params?: { searchString?: string; match?: MatchType }) {
   return useQuery({
     queryKey: spaceKeys.associated({ ...params, shape: 'isAssociated' } as any), 
     queryFn: () => spaceApi.getAssociatedSpace(params),

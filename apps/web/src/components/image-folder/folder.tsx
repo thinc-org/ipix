@@ -34,7 +34,7 @@ export function Folder({ folder }: FolderProps) {
       className="w-[184px] relative"
       onContextMenu={handleContextMenu}
     >
-      <Link to={folder.id} className="flex flex-col items-center p-2">
+      <Link to={`/space/$spaceId/f/$folderId`} className="flex flex-col items-center p-2" params={{spaceId: folder.spaceId, folderId: folder.id}}>
         <img src="/image_folder_resource/folder.svg" aria-hidden="true" />
         <span className="text-center text-xs">{folder.name}</span>
         <span className="text-black/50 text-xs">

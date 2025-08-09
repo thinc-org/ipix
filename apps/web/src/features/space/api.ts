@@ -6,7 +6,7 @@ type SpaceInsert = typeof import("@repo/rdb/schema").storageSchema.space.$inferI
 export type SpaceType = SpaceInsert["type"];
 export type AccessType = SpaceInsert["accessType"];
 
-export async function getAssociatedSpace(query?: { name?: string; match?: MatchType }) {
+export async function getAssociatedSpace(query?: { searchString?: string; match?: MatchType }) {
   return app.space['associated-space'].get({ query: compact(query ?? {}) });
 }
 

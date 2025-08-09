@@ -12,6 +12,11 @@ export const Route = createFileRoute("/")({
         to: '/sign-in'
       })
     }
+
+    throw redirect({
+      to: '/myipix'
+    })
+
   },
   component: App,
 });
