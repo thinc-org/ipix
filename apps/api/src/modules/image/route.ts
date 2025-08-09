@@ -42,6 +42,14 @@ const sanitizeHeaderValue = (value: string): string => {
     .trim();
 };
 
+// currently only allow image
+const isAllowedMime = (type?: string) =>
+  !!type && /^image\/[a-zA-Z0-9.+-]+$/.test(type);
+
+// currently only allow image
+const hasAllowedExtension = (filename?: string) =>
+  !!filename && /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(filename);
+
 export const s3Router = new Elysia({ prefix: "/s3" })
   .use(betterAuthMiddleware)
   // Not used yet, because MinIO does not support GetFederationTokenCommand
@@ -79,6 +87,11 @@ SIMPLE PUT OBJECT (non-multipart)
         return { error: "filename & type required" };
       }
 
+      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
+        set.status = 415;
+        return { error: "You are not allowed to upload this type of file" };
+      }
+
       const key = generateKey();
       const url = await getSignedUrl(
         s3,
@@ -101,6 +114,11 @@ SIMPLE PUT OBJECT (non-multipart)
       if (!filename || !type) {
         set.status = 400;
         return { error: "filename & type required" };
+      }
+
+      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
+        set.status = 415;
+        return { error: "You are not allowed to upload this type of file" };
       }
 
       const key = generateKey();
@@ -137,6 +155,11 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       if (!filename || !type) {
         set.status = 400;
         return { error: "filename & type required" };
+      }
+
+      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
+        set.status = 415;
+        return { error: "You are not allowed to upload this type of file" };
       }
 
       const key = generateKey()
@@ -187,6 +210,11 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       if (!type) {
         set.status = 400;
         return { error: "s3: content type must be a string" };
+      }
+
+      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
+        set.status = 415;
+        return { error: "You are not allowed to upload this type of file" };
       }
 
       // Generate key with context for better organization
