@@ -715,6 +715,6 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     },
     {
       body: t.Object({ keys: t.Array(t.String()) }),
-      auth: { allowPublic: true },
+      auth: { allowPublic: false },
     }
   );
