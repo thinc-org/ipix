@@ -1,12 +1,19 @@
-import { useState } from "react";
+import { use, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Menu } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Image, Users } from "lucide-react";
 import { SignOutButton } from "./sign-out-button";
+import { useAssociatedSpace } from "@/features/space/hook";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const user = {
   profilePictureLink: "https://i.pravatar.cc/100",
@@ -28,6 +35,8 @@ export function Sidebar({
   const percentage = Math.floor(
     (user.storageSpaceUsed / user.storageSpaceAll) * 100
   );
+  const { data } = useAssociatedSpace();
+  const spaces = data?.data?.data.mySpace ?? [];
 
   return (
     <div className="fixed top-[10vh] h-[90vh] z-50 text-lg">
@@ -70,12 +79,34 @@ export function Sidebar({
                 >
                   <Image /> <p>My IPix</p>
                 </Link>
-                <Link
-                  to="/sharewithme"
-                  className="flex flex-row space-x-5 items-center justify-start w-full px-4 py-2 rounded-md hover:bg-muted transition"
-                >
-                  <Users /> <p>Shared With Me</p>
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex flex-row items-center justify-between w-full px-4 py-2 rounded-md hover:bg-muted transition">
+                      <span className="flex items-center gap-5">
+                        <Users /> Shared With Me
+                      </span>
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    {spaces.length > 0 ? (
+                      spaces.map((space) => (
+                        <DropdownMenuItem key={space.id} asChild>
+                          <Link
+                            to={`/space/$spaceId`}
+                            params={{ spaceId: space.id }}
+                          >
+                            {space.name}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))
+                    ) : (
+                      <DropdownMenuItem disabled>
+                        No spaces found
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </nav>
             </div>
 
