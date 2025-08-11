@@ -140,6 +140,7 @@ export const blobStorageClassEnum = pgEnum("blob_storage_class", [
   "infrequent_access",
   "archive",
 ]);
+export const blobLocKindEnum = pgEnum("blob_loc_kind", ["canon", "preview"]);
 
 export const fileBlobLocation = pgTable(
   "file_blob_location",
@@ -150,6 +151,12 @@ export const fileBlobLocation = pgTable(
     assetId: uuid("asset_id")
       .notNull()
       .references(() => fileAsset.id, { onDelete: "cascade" }),
+
+    kind: blobLocKindEnum("kind").notNull().default("canon"),
+    itemId: uuid("item_id").references(() => item.id, { onDelete: "cascade" }),
+    variant: citext("variant"),
+    algoV: smallint("algo_v"),
+    ext: text("ext"),
 
     provider: blobProviderEnum("provider").notNull(),
     region: text("region"),
@@ -178,7 +185,7 @@ export const fileBlobLocation = pgTable(
     index("idx_blob_bucket_key").on(t.provider, t.bucket, t.objectKey),
     uniqueIndex("uq_blob_primary_per_asset")
       .on(t.assetId)
-      .where(sql`${t.isPrimary} = true`),
+      .where(sql`${t.isPrimary} = true AND ${t.kind} = 'canon'`),
 
     // Versioning & Region safe uniqueness (two partial uniques)
     uniqueIndex("uq_blob_phys_unversioned_regnull")
@@ -194,8 +201,30 @@ export const fileBlobLocation = pgTable(
       .on(t.provider, t.region, t.bucket, t.objectKey, t.versionId)
       .where(sql`${t.versionId} IS NOT NULL AND ${t.region} IS NOT NULL`),
 
+
+    // Fast preview lookups per item
+    index("idx_blob_preview_item").on(t.itemId).where(sql`${t.kind} = 'preview'`),
+
+    // Logical uniqueness for previews
+    uniqueIndex("uq_preview_identity")
+      .on(t.assetId, t.itemId, t.variant, t.algoV, sql`COALESCE(${t.ext}, '')`)
+      .where(sql`${t.kind} = 'preview'`),
+
+    // Checks
     check("chk_bucket_lower", sql`${t.bucket} = lower(${t.bucket})`),
     check("chk_key_len", sql`octet_length(${t.objectKey}) BETWEEN 1 AND 1024`),
+    check(
+      "chk_fbl_kind_columns",
+      sql`
+        (${t.kind} = 'canon' AND ${t.itemId} IS NULL AND ${t.variant} IS NULL AND ${t.algoV} IS NULL AND ${t.ext} IS NULL)
+        OR
+        (${t.kind} = 'preview' AND ${t.itemId} IS NOT NULL AND ${t.variant} IS NOT NULL AND ${t.algoV} IS NOT NULL)
+      `
+    ),
+    check(
+      "chk_fbl_primary_only_canon",
+      sql`(${t.kind} = 'canon') OR (${t.kind} = 'preview' AND ${t.isPrimary} = false)`
+    ),
   ]
 );
 
@@ -215,7 +244,7 @@ export const fileAsset = pgTable(
     sha256Prefix24: bytea("sha256_prefix24")
       .notNull()
       .generatedAlwaysAs(() => sql`substring(sha256 from 1 for 24)`),
-    sha256Hex24: text("sha256_hex12").generatedAlwaysAs(
+    sha256Hex24: text("sha256_hex24").generatedAlwaysAs(
       () => sql`substring(encode(sha256, 'hex') for 24)`
     ),
 
@@ -636,6 +665,133 @@ export const itemEffectiveAccessRecalcQueue = pgTable(
   ]
 );
 
+export const previewRepathQueue = pgTable(
+  "preview_repath_queue",
+  {
+    id: uuid("id").primaryKey().default(sql`uuidv7_sub_ms()`),
+
+    fblId: uuid("fbl_id")
+      .notNull()
+      .references(() => fileBlobLocation.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => item.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => fileAsset.id, { onDelete: "cascade" }),
+
+    fromSpace: uuid("from_space")
+      .notNull()
+      .references(() => space.id, { onDelete: "cascade" }),
+    toSpace: uuid("to_space")
+      .notNull()
+      .references(() => space.id, { onDelete: "cascade" }),
+
+    provider: blobProviderEnum("provider").notNull(),
+    region: text("region"),
+    bucket: citext("bucket").notNull(),
+
+    oldKey: text("old_key").notNull(),
+    newKey: text("new_key").notNull(),
+
+    variant: citext("variant").notNull(),
+    algoV: smallint("algo_v").notNull(),
+    ext: text("ext"),
+
+    enqueuedAt: timestamp("enqueued_at", { withTimezone: true }).defaultNow().notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    error: text("error"),
+  },
+  (t) => [
+    // Prevent duplicate tasks per preview for a given destination space
+    uniqueIndex("uq_prq_fbl_to_space").on(t.fblId, t.toSpace),
+  ]
+);
+
+/*
+! ONLY READ THIS PART IF YOU'RE NOT GOING TO DO DB MIGRATION.
+* list of useful service layer functions in db for backend dev to call
+1. finalize_upload_with_asset_and_location(...)
+  What it does:
+    - Validates the upload_session and item.
+    - Upserts the file_asset by sha256.
+    - Inserts or reuses a file_blob_location using a canonical key.
+    - Optionally makes it the primary location (if none exists).
+    - Finalizes the item: sets size, mime, file_state=ready, links asset.
+    - Marks the upload_session completed.
+  When to call:
+    - At the end of your object storage upload, to atomically finalize the file in the DB.
+
+2. set_primary_location(_asset, _location)
+  What it does:
+    - Switches which blob location is the primary for an asset and clears any previous primary, safely.
+  When to call:
+    - If you add/choose a new physical location (e.g., move buckets/regions) and need to promote it.
+
+3. set_trash_subtree(_root, _trashed_at, _purge_at DEFAULT NULL)
+  What it does:
+    - Cascades trash or untrash across a subtree and sets purge_at if trashed.
+  When to call:
+    - Implement "Move to Trash" or "Restore" from trash. Example (trash for 30 days)
+
+4. asset_sha24(_asset uuid)
+  What it does:
+    - Looks up the asset’s SHA-256 and returns the first 24 hex characters as text.
+  When to call:
+    - Whenever you need to construct a preview key for an asset (e.g., in triggers, workers, or app code).
+
+5. build_preview_key(_space uuid, _item uuid, _sha24 text, _variant citext, _algov smallint, _ext text)
+  What it does:
+    - Builds the exact preview object key: `spaces/${spaceId}/${itemId}/${sha24}/previews/${variant}@v${algoV}[.ext]`.
+    - Normalizes variable
+  When to call:
+    - In workers preparing to upload a preview so they can write to the correct path.
+
+6. upsert_preview_location(_asset uuid, _item uuid, _provider blob_provider, _region text, _bucket citext, _version_id text DEFAULT NULL, _variant citext, _algo_v smallint, _ext text DEFAULT NULL, _storage_class blob_storage_class DEFAULT NULL, _etag text DEFAULT NULL)
+  What it does:
+    - Inserts a `file_blob_location` row for a preview (kind = `preview`) if one doesn’t already exist for the same `(asset, item, variant, algo_v, ext)`.
+    - Returns ```(id, object_key)``` for the preview location; idempotent on repeated calls with the same identity.
+    - Normalizes variable
+  When to call:
+    - Right before or right after uploading a preview to storage:
+      - Before: call it to get `object_key`, then upload to that path.
+      - After: call it to register metadata if you already uploaded to that path.
+    - In your preview processing pipeline to ensure one row per logical preview variant/version.
+
+7. list_preview_repath_tasks(_limit int DEFAULT 100)
+  What it does:
+    - Lists pending preview re-path tasks from `preview_repath_queue` (where `processed_at IS NULL`), ordered by enqueue time.
+    - Returns all metadata the worker needs to copy from `old_key` to `new_key` (including provider, bucket, region).
+  When to call:
+    - In your background worker’s polling loop to fetch the next batch of tasks to process.
+    - At worker startup or on a schedule to drive throughput with backoff and batching.
+
+8. mark_preview_repath_done(_task uuid, _version_id text DEFAULT NULL, _etag text DEFAULT NULL)
+  What it does:
+    - Marks a re-path task as completed and updates the corresponding `file_blob_location` to point at the new key.
+    - Optionally records `version_id` and `etag` returned by the object store after the copy.
+    - Sets `processed_at` so the task is not picked up again.
+  When to call:
+    - Immediately after your worker has successfully copied the object from `old_key` to `new_key` in storage.
+    - As part of the worker’s "commit" step for each task to keep DB state in sync with storage.
+
+9. mark_preview_repath_failed(_task uuid, _error text)
+  What it does:
+    - Increments the task’s `attempts` counter and stores the latest error message for diagnostics.
+    - Leaves the task pending so it can be retried by the worker with backoff logic.
+  When to call:
+    - Whenever the worker encounters a transient error copying or updating (e.g., network timeouts, rate limits).
+    - On hard failures too, so your monitoring can alert and you can intervene or dead-letter after a max-attempts policy.
+
+* Postgres features you might need to know
+1. DEFERRABLE INITIALLY DEFERRED
+  What it is:
+    - Make validations run at COMMIT.
+  What you should do:
+    - Always wrap multi-row operations in a transaction so constraints can validate the final state.
+*/
+
 //! MIGRATION GUIDELINE
 // TODO: finish the migration guideline
 
@@ -652,1054 +808,6 @@ export const itemEffectiveAccessRecalcQueue = pgTable(
 6. Create Tables
 7. Create functions/triggers
 8. Seed `accessRank`
-*/
-
-//! RAW SQL FILE TO ADD IN DRIZZLE MIGRATION FILE
-
-/*
-! PROBLEMETIC REGEX CHECK
-```sql
-(Can't put here because syntax)
-*/
-
-/*
-! SEED DATA
-//* << ACCESS_RANK >>
-```sql
-INSERT INTO access_rank(access_type, rank) VALUES ('public',1000),('team',2000),('owner',3000)  ON CONFLICT DO NOTHING;
-```
-*/
-
-/*
-! AUTH schemas alteration
-* << Change all better-auth table to use uuid >>
-```sql
--- Custom SQL migration file, put your code below! --
-
--- Drop all foreign key constraints that reference user table
-ALTER TABLE "account" DROP CONSTRAINT "account_user_id_user_id_fk";
-ALTER TABLE "session" DROP CONSTRAINT "session_user_id_user_id_fk";
-
--- Convert user table id to uuid first (this is the referenced column)
-ALTER TABLE "user" 
-ALTER COLUMN "id" TYPE uuid USING "id"::uuid;
-
--- Convert all referencing columns to uuid
-ALTER TABLE "account"
-ALTER COLUMN "user_id" TYPE uuid USING "user_id"::uuid;
-
-ALTER TABLE "session"
-ALTER COLUMN "user_id" TYPE uuid USING "user_id"::uuid;
-
--- Also convert primary keys of other tables if needed
-ALTER TABLE "account"
-ALTER COLUMN "id" TYPE uuid USING "id"::uuid;
-
-ALTER TABLE "session"
-ALTER COLUMN "id" TYPE uuid USING "id"::uuid;
-
-ALTER TABLE "verification"
-ALTER COLUMN "id" TYPE uuid USING "id"::uuid;
-
--- Recreate foreign key constraints
-ALTER TABLE "account" 
-ADD CONSTRAINT "account_user_id_user_id_fk" 
-FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-
-ALTER TABLE "session" 
-ADD CONSTRAINT "session_user_id_user_id_fk" 
-FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-```
-*/
-
-/*
-! GENERATED COLUMNS
-? ITEM table
-```sql
---Add a generated column that's the name only when the row is live
-ALTER TABLE item
-  ADD COLUMN live_name citext
-  GENERATED ALWAYS AS (CASE WHEN trashed_at IS NULL THEN name ELSE NULL END) STORED;
-```
-*/
-
-/*
-! Non Trigger Constraints
-? ITEM table
-* for big batch insert
-```sql
-ALTER TABLE item
-  ALTER CONSTRAINT item_parent_id_fk
-  DEFERRABLE INITIALLY DEFERRED;
-```
-* unique name for live item
-```sql
--- Create a DEFERRABLE unique constraint that enforces sibling uniqueness only for live rows
-ALTER TABLE item
-  ADD CONSTRAINT uq_sibling_live_ci
-  UNIQUE (space_id, parent_id, live_name)
-  DEFERRABLE INITIALLY DEFERRED;
-```
-* alter item_access_type_fk that have been defined in drizzle
-```sql
-ALTER TABLE item
-  ALTER CONSTRAINT item_access_type_fk
-  DEFERRABLE INITIALLY DEFERRED;
-```
-? SPACE table
-* ON space & root folder initialization (so we can insert both in one transaction)
-HOW TO: use transaction -> generate `root_id` -> insert `space` -> insert `item` -> commit (constraints check at commit)
-```
-ALTER TABLE space
-  ALTER CONSTRAINT space_root_folder_id_fkey
-  DEFERRABLE INITIALLY DEFERRED;
-```
-*/
-
-/*
-! TRIGGER, Effective Access Calc/ReCalc
-? << queue and batch recomputations - row level: mark dirty (deferred to end of transaction) >>
-* FUNC: iea_mark_dirty
-```sql
-CREATE OR REPLACE FUNCTION iea_mark_dirty()
-RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
-BEGIN
-  INSERT INTO item_effective_recalc_queue(txid, id)
-  VALUES (txid_current(), NEW.id)
-  ON CONFLICT DO NOTHING;
-  RETURN NULL;
-END;
-$$;
-```
-* ON: ITEM
-```sql
--- Any change that can affect effective access
-DROP TRIGGER IF EXISTS iea_mark_dirty_row ON item;
-CREATE CONSTRAINT TRIGGER iea_mark_dirty_row
-AFTER INSERT OR UPDATE OF access_type, parent_id, trashed_at, space_id ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION iea_mark_dirty();
-```
-* FUNC: iea_mark_dirty_on_rank
-```sql
-CREATE OR REPLACE FUNCTION iea_mark_dirty_on_rank()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  INSERT INTO item_effective_recalc_queue(txid, id)
-  SELECT txid_current(), i.id
-  FROM item i
-  WHERE i.access_type = COALESCE(NEW.access_type, OLD.access_type)
-  ON CONFLICT DO NOTHING;
-  RETURN NULL;
-END $$;
-```
-* ON: ACCESS_RANK
-```sql
-CREATE TRIGGER iea_dirty_on_rank
-AFTER INSERT OR UPDATE OR DELETE ON access_rank
-FOR EACH STATEMENT
-EXECUTE FUNCTION iea_mark_dirty_on_rank();
-```
-? << queue and batch recomputations - statement level aggregator: pick top‑most roots and recompute once per root >>
-Note: Constraint triggers fire at end of transaction. PostgreSQL runs deferred triggers in name order; give this one a name that sorts last to ensure the queue is populated first.
-* FUNC: iea_apply_pending
-```sql
-CREATE OR REPLACE FUNCTION iea_apply_pending()
-RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
-DECLARE
-  r RECORD;
-BEGIN
-  -- Find candidates for this transaction
-  FOR r IN
-    WITH candidates AS (
-      SELECT id FROM item_effective_recalc_queue
-      WHERE txid = txid_current()
-    ),
-    -- Keep only those whose ancestor is not also a candidate (top-most roots)
-    roots AS (
-      SELECT c1.id
-      FROM candidates c1
-      LEFT JOIN LATERAL (
-        WITH RECURSIVE anc AS (
-          SELECT i.parent_id AS id
-          FROM item i
-          WHERE i.id = c1.id
-          UNION ALL
-          SELECT i.parent_id
-          FROM anc a
-          JOIN item i ON i.id = a.id
-        )
-        SELECT 1
-        FROM anc
-        WHERE id IN (SELECT id FROM candidates)
-        LIMIT 1
-      ) hit ON true
-      WHERE hit IS NULL
-    )
-    SELECT DISTINCT id FROM roots
-  LOOP
-    PERFORM recompute_effective_access(r.id);
-  END LOOP;
-
-  -- Clear items for this transaction
-  DELETE FROM item_effective_recalc_queue
-  WHERE txid = txid_current();
-
-  RETURN NULL;
-END;
-$$;
-```
-* ON: ITEM
-* ON: ACCESS_RANK
-```sql
-DROP TRIGGER IF EXISTS zzzzz_iea_apply_pending_stmt ON item;
-CREATE CONSTRAINT TRIGGER zzzzz_iea_apply_pending_stmt
-AFTER INSERT OR UPDATE OF access_type, parent_id, trashed_at ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION iea_apply_pending();
-
-DROP TRIGGER IF EXISTS zzzzz_iea_apply_pending_stmt_rank ON access_rank;
-CREATE CONSTRAINT TRIGGER zzzzz_iea_apply_pending_stmt_rank
-AFTER INSERT OR UPDATE OR DELETE ON access_rank
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION iea_apply_pending();
-```
-? << recompute effective access in sub-tree (single pass, set‑based) >>
-* FUNC: recompute_effective_access
-```sql
-CREATE OR REPLACE FUNCTION recompute_effective_access(_root uuid)
-RETURNS void
-LANGUAGE plpgsql AS $$
-DECLARE
-  floor_rank smallint;
-  max_rank   smallint;
-BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended(_root::text, 0));
-  PERFORM 1 FROM item WHERE id = _root;
-  IF NOT FOUND THEN
-    RETURN;
-  END IF;
-
-  SELECT MAX(rank) INTO max_rank FROM access_rank;
-
-  WITH RECURSIVE anc AS (
-    SELECT p.id, p.parent_id, ar.rank
-    FROM item p
-    JOIN access_rank ar ON ar.access_type = p.access_type
-    WHERE p.id = (SELECT parent_id FROM item WHERE id = _root)
-      AND p.trashed_at IS NULL
-    UNION ALL
-    SELECT i.id, i.parent_id, ar.rank
-    FROM anc a
-    JOIN item i ON i.id = a.parent_id
-    JOIN access_rank ar ON ar.access_type = i.access_type
-    WHERE i.trashed_at IS NULL
-  )
-  SELECT COALESCE(MIN(rank), max_rank) INTO floor_rank FROM anc;
-
-  WITH RECURSIVE subtree_all AS (
-    SELECT i.id
-    FROM item i
-    WHERE i.id = _root
-    UNION ALL
-    SELECT c.id
-    FROM subtree_all s
-    JOIN item c ON c.parent_id = s.id
-  ),
-  live_down AS (
-    SELECT i.id, i.space_id, LEAST(ar.rank, floor_rank) AS eff_rank
-    FROM item i
-    JOIN access_rank ar ON ar.access_type = i.access_type
-    WHERE i.id = _root
-      AND i.trashed_at IS NULL
-    UNION ALL
-    SELECT ch.id, ch.space_id, LEAST(ar.rank, d.eff_rank)
-    FROM live_down d
-    JOIN item ch ON ch.parent_id = d.id
-    JOIN access_rank ar ON ar.access_type = ch.access_type
-    WHERE ch.trashed_at IS NULL
-  ),
-  purge AS (
-    DELETE FROM item_effective_access iea
-    WHERE iea.id IN (SELECT id FROM subtree_all)
-    RETURNING 1
-  )
-  INSERT INTO item_effective_access (id, space_id, effective_rank)
-  SELECT d.id, d.space_id, d.eff_rank
-  FROM live_down d
-  ON CONFLICT (id) DO UPDATE
-    SET space_id = EXCLUDED.space_id,
-        effective_rank = EXCLUDED.effective_rank,
-        updated_at = now();
-END;
-$$;
-```
-*/
-
-/*
-! TRIGGER, Access Change
-? << an item cannot be more private than an ancestor >>
-* 1 FUNC
-```sql
-CREATE OR REPLACE FUNCTION chk_access_not_stricter_than_ancestors()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE parent_rank smallint;
-        new_rank smallint;
-BEGIN
-  IF NEW.parent_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT ar.rank INTO new_rank FROM access_rank ar WHERE ar.access_type = NEW.access_type;
-
-  -- Walk up to find the minimum ancestor rank (i.e., least restrictive)
-  WITH RECURSIVE chain AS (
-    SELECT p.id, p.parent_id, ar.rank
-    FROM item p
-    JOIN access_rank ar ON ar.access_type = p.access_type
-    WHERE p.id = NEW.parent_id AND p.trashed_at IS NULL
-    UNION ALL
-    SELECT i.id, i.parent_id, ar.rank
-    FROM chain c
-    JOIN item i ON i.id = c.parent_id
-    JOIN access_rank ar ON ar.access_type = i.access_type
-    WHERE i.trashed_at IS NULL
-  )
-  SELECT MIN(rank) INTO parent_rank FROM chain;
-
-  IF parent_rank IS NOT NULL AND new_rank > parent_rank THEN
-    RAISE EXCEPTION 'Child access (%) is stricter than an ancestor', NEW.access_type;
-  END IF;
-
-  RETURN NEW;
-END $$;
-```
-* 1 ON: ITEM
-```sql
-CREATE CONSTRAINT TRIGGER chk_access_floor
-AFTER INSERT OR UPDATE OF space_id, access_type, parent_id ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION chk_access_not_stricter_than_ancestors();
-```
-* 2 FUNC
-```sql
-CREATE OR REPLACE FUNCTION chk_access_floor_stmt()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE bad uuid;
-BEGIN
-  WITH candidates AS (
-    SELECT id FROM item_effective_recalc_queue WHERE txid = txid_current()
-  ),
-  roots AS (
-    SELECT c1.id
-    FROM candidates c1
-    LEFT JOIN LATERAL (
-      WITH RECURSIVE anc AS (
-        SELECT i.parent_id AS id
-        FROM item i WHERE i.id = c1.id
-        UNION ALL
-        SELECT i.parent_id
-        FROM anc a JOIN item i ON i.id = a.id
-      )
-      SELECT 1 FROM anc WHERE id IN (SELECT id FROM candidates) LIMIT 1
-    ) hit ON true
-    WHERE hit IS NULL
-  ),
-  viol AS (
-    SELECT ch.id AS child_id
-    FROM roots r
-    JOIN LATERAL (
-      WITH RECURSIVE live_down AS (
-        SELECT i.id, i.parent_id
-        FROM item i
-        WHERE i.id = r.id AND i.trashed_at IS NULL
-        UNION ALL
-        SELECT c.id, c.parent_id
-        FROM live_down d
-        JOIN item c ON c.parent_id = d.id
-        WHERE c.trashed_at IS NULL
-      )
-      SELECT id FROM live_down
-    ) ch ON true
-    JOIN item child ON child.id = ch.id
-    JOIN access_rank cr ON cr.access_type = child.access_type
-    JOIN LATERAL (
-      WITH RECURSIVE anc AS (
-        SELECT p.id, p.parent_id, ar.rank
-        FROM item p
-        JOIN access_rank ar ON ar.access_type = p.access_type
-        WHERE p.id = child.parent_id AND p.trashed_at IS NULL
-        UNION ALL
-        SELECT i.id, i.parent_id, ar.rank
-        FROM anc a
-        JOIN item i ON i.id = a.parent_id
-        JOIN access_rank ar ON ar.access_type = i.access_type
-        WHERE i.trashed_at IS NULL
-      )
-      SELECT MIN(rank) AS floor_rank FROM anc
-    ) a ON TRUE
-    WHERE a.floor_rank IS NOT NULL AND cr.rank > a.floor_rank
-    LIMIT 1
-  )
-  SELECT child_id INTO bad FROM viol;
-
-  IF bad IS NOT NULL THEN
-    RAISE EXCEPTION 'Child access is stricter than an ancestor (item=%)', bad;
-  END IF;
-
-  RETURN NULL;
-END $$;
-```
-* 2 ON: ITEM
-```sql
-DROP TRIGGER IF EXISTS chk_access_floor_stmt ON item;
-CREATE CONSTRAINT TRIGGER chk_access_floor_stmt
-AFTER INSERT OR UPDATE OF access_type, parent_id ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION chk_access_floor_stmt();
-```
-*/
-
-/*
-! TRIGGER, Upload Logic
-? << upload finalization >>
-* FUNC: finalize_upload_with_asset_and_location
-```sql
-CREATE OR REPLACE FUNCTION finalize_upload_with_asset_and_location(
-  _item uuid,
-  _session uuid,
-  _sha256 bytea,
-  _content_type citext,
-  _size bigint,
-  _provider blob_provider,
-  _region text,
-  _bucket citext,
-  _version_id text DEFAULT NULL,
-  _etag text DEFAULT NULL,
-  _storage_class blob_storage_class DEFAULT NULL,
-  _set_primary boolean DEFAULT true
-) RETURNS void LANGUAGE plpgsql AS $$
-DECLARE
-  s upload_session%ROWTYPE;
-  a_id uuid;
-  canon_key text;
-  loc_id uuid;
-  will_make_primary boolean;
-BEGIN
-  -- Validate session and item
-  SELECT * INTO s
-  FROM upload_session
-  WHERE key = _session AND item_id = _item
-  FOR UPDATE;
-
-  IF NOT FOUND OR s.status <> 'in_progress' THEN
-    RAISE EXCEPTION 'Invalid session';
-  END IF;
-
-  PERFORM 1 FROM item WHERE id = _item FOR UPDATE;
-
-  IF s.expected_size IS NOT NULL AND s.expected_size <> _size THEN
-    RAISE EXCEPTION 'Size mismatch: expected %, got %', s.expected_size, _size;
-  END IF;
-
-  -- Insert or reuse file_asset
-  WITH ins AS (
-    INSERT INTO file_asset (sha256, size_byte, content_type)
-    VALUES (_sha256, _size, COALESCE(_content_type, s.content_type))
-    ON CONFLICT (sha256) DO NOTHING
-    RETURNING id
-  )
-  SELECT id INTO a_id FROM ins
-  UNION ALL
-  SELECT id FROM file_asset WHERE sha256 = _sha256
-  LIMIT 1;
-
-  -- Canonical key for physical storage
-  canon_key := canonical_blob_key(_sha256);
-
-  -- Serialize per-asset mutations to avoid race on primaries
-  PERFORM pg_advisory_xact_lock(hashtextextended(a_id::text, 0));
-
-  -- Decide if we should make this location primary:
-  -- only if caller asked, and none exists yet.
-  will_make_primary := _set_primary AND NOT asset_has_primary(a_id);
-
-  -- Try inserting the location (prefer canonical key)
-  INSERT INTO file_blob_location (
-    asset_id, provider, region, bucket, object_key, version_id,
-    is_primary, state, storage_class, etag
-  )
-  VALUES (
-    a_id, _provider, _region, lower(_bucket), canon_key, _version_id,
-    will_make_primary, 'active', _storage_class, _etag
-  )
-  ON CONFLICT DO NOTHING
-  RETURNING id INTO loc_id;
-
-  IF loc_id IS NULL THEN
-    SELECT id INTO loc_id
-    FROM file_blob_location
-    WHERE provider = _provider
-      AND (region IS NOT DISTINCT FROM _region)
-      AND bucket = lower(_bucket)
-      AND object_key = canon_key
-      AND (version_id IS NOT DISTINCT FROM _version_id)
-    LIMIT 1;
-  END IF;
-
-  -- Update metadata (idempotent) and optionally promote to primary if none exists.
-  UPDATE file_blob_location
-  SET
-    state = 'active',
-    storage_class = COALESCE(_storage_class, storage_class),
-    etag = COALESCE(_etag, etag),
-    is_primary = CASE WHEN will_make_primary THEN true ELSE is_primary END
-  WHERE id = loc_id;
-
-  -- Finish the item link (same as your current finalize)
-  UPDATE item
-  SET mime_type = lower(COALESCE(mime_type, COALESCE(_content_type, s.content_type))),
-      size_byte = _size,
-      file_state = 'ready',
-      asset_id = a_id
-  WHERE id = _item
-    AND file_state <> 'ready';
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Item already finalized';
-  END IF;
-
-  UPDATE upload_session
-  SET status = 'completed', completed_at = now()
-  WHERE key = _session;
-END $$;
-```
-? << ensure upload_session targets files >>
-```sql
-CREATE OR REPLACE FUNCTION chk_upload_targets_file()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE it RECORD;
-BEGIN
-  SELECT item_type, trashed_at INTO it FROM item WHERE id = NEW.item_id;
-  IF it.item_type <> 'file' THEN
-    RAISE EXCEPTION 'upload_session must target a file';
-  END IF;
-  IF it.trashed_at IS NOT NULL THEN
-    RAISE EXCEPTION 'cannot upload to a trashed item';
-  END IF;
-  RETURN NEW;
-END $$;
-```
-* ON: UPLOAD_SESSION
-```sql
-CREATE CONSTRAINT TRIGGER chk_upload_targets_file
-AFTER INSERT OR UPDATE OF item_id ON upload_session
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION chk_upload_targets_file();
-```
-? << Keep ITEM & ASSET consistent with file states >>
-* FUNC: chk_item_asset_consistency
-```sql
-CREATE OR REPLACE FUNCTION chk_item_asset_consistency()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE a RECORD;
-BEGIN
-  -- If an asset is set, the item must be a ready file and its local cache must match the asset.
-  IF NEW.asset_id IS NOT NULL THEN
-    IF NEW.item_type <> 'file' THEN
-      RAISE EXCEPTION 'asset_id may only be set for item_type=file';
-    END IF;
-    IF NEW.file_state <> 'ready' THEN
-      RAISE EXCEPTION 'asset_id requires file_state=ready';
-    END IF;
-
-    SELECT size_byte, content_type INTO a
-    FROM file_asset WHERE id = NEW.asset_id;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'asset_id does not reference an existing file_asset';
-    END IF;
-
-    IF NEW.size_byte IS NULL OR NEW.mime_type IS NULL THEN
-      RAISE EXCEPTION 'ready file must have size_byte and mime_type set';
-    END IF;
-
-    IF NEW.size_byte <> a.size_byte OR NEW.mime_type <> a.content_type THEN
-      RAISE EXCEPTION 'item size/mime mismatch with file_asset';
-    END IF;
-  ELSE
-    -- No asset: cannot be ready
-    IF NEW.file_state = 'ready' THEN
-      RAISE EXCEPTION 'ready file must reference a file_asset';
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END $$;
-```
-* ON: ITEM
-```sql
-DROP TRIGGER IF EXISTS chk_item_asset_consistency_row ON item;
-CREATE CONSTRAINT TRIGGER chk_item_asset_consistency_row
-AFTER INSERT OR UPDATE OF asset_id, file_state, size_byte, mime_type, item_type ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION chk_item_asset_consistency();
-```
-? << helper for canonical key >>
-* FUNC: canonical_blob_key
-```sql
-CREATE OR REPLACE FUNCTION canonical_blob_key(_sha256 bytea)
-RETURNS text
-LANGUAGE sql IMMUTABLE STRICT AS $$
-  SELECT format(
-    'blobs/sha256/%s/%s/%s',
-    substring(encode(_sha256,'hex') for 2),
-    substring(encode(_sha256,'hex') from 3 for 2),
-    encode(_sha256,'hex')
-  );
-$$;
-```
-? << check if an asset already has a primary >>
-* FUNC: asset_has_primary
-```sql
-CREATE OR REPLACE FUNCTION asset_has_primary(_asset uuid)
-RETURNS boolean
-LANGUAGE sql STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM file_blob_location
-    WHERE asset_id = _asset AND is_primary = true
-  );
-$$;
-```
-
-? << primary switch helper >>
-* FUNC: set_primary_location
-```sql
-CREATE OR REPLACE FUNCTION set_primary_location(_asset uuid, _location uuid)
-RETURNS void LANGUAGE plpgsql AS $$
-BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended(_asset::text, 0));
-  UPDATE file_blob_location
-  SET is_primary = false
-  WHERE asset_id = _asset AND is_primary = true AND id <> _location;
-
-  UPDATE file_blob_location
-  SET is_primary = true
-  WHERE id = _location AND asset_id = _asset;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Location % does not belong to asset %', _location, _asset;
-  END IF;
-END $$;
-```
-*/
-
-/*
-! TRIGGER, Drive & File System Structure Logic
-refer to: https://read.seas.harvard.edu/~kohler/class/cs111-s05/notes/notes14.html
-? << normalize file states when inserting folder >>
-* FUNC: normalize_file_state_for_folders
-```sql
-CREATE OR REPLACE FUNCTION normalize_file_state_for_folders()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.item_type = 'folder' THEN
-    NEW.file_state := NULL;
-  ELSIF NEW.file_state IS NULL THEN
-    NEW.file_state := 'placeholder';
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-* ON: ITEM
-```sql
-DROP TRIGGER IF EXISTS normalize_file_state_for_folders_biu ON item;
-CREATE TRIGGER normalize_file_state_for_folders_biu
-BEFORE INSERT OR UPDATE OF item_type, file_state ON item
-FOR EACH ROW
-EXECUTE FUNCTION normalize_file_state_for_folders();
-```
-? << parent must be a folder >>
-* FUNC: check_parent_is_folder
-```sql
-CREATE OR REPLACE FUNCTION check_parent_is_folder() RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.parent_id IS NOT NULL THEN
-    PERFORM 1
-    FROM   item p
-    WHERE  p.id = NEW.parent_id
-      AND  p.item_type = 'folder';
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Parent item (%) is not a folder', NEW.parent_id;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-```
-* ON: ITEM
-```sql
-CREATE CONSTRAINT TRIGGER chk_parent_is_folder
-AFTER INSERT OR UPDATE ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION check_parent_is_folder();
-```
-? << cycle detection >>
-* FUNC: check_item_cycle
-```sql
-CREATE OR REPLACE FUNCTION check_item_cycle()
-RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
-DECLARE
-  cur uuid;
-BEGIN
-  IF NEW.parent_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  cur := NEW.parent_id;
-  WHILE cur IS NOT NULL LOOP
-    IF cur = NEW.id THEN
-      RAISE EXCEPTION
-        USING ERRCODE = '23514',
-              MESSAGE  = format(
-                 'Cycle detected: "%s" would become its own ancestor',
-                 NEW.id);
-    END IF;
-    SELECT parent_id INTO cur
-    FROM   item WHERE id = cur;
-  END LOOP;
-
-  RETURN NEW;
-END;
-$$;
-```
-* ON: ITEM
-```sql
-CREATE CONSTRAINT TRIGGER chk_item_no_cycle
-AFTER INSERT OR UPDATE OF parent_id ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION check_item_cycle();
-```
-? << parent & child must share same space >>
-* FUNC: check_parent_same_space
-```sql
-CREATE OR REPLACE FUNCTION check_parent_same_space()
-RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
-DECLARE
-  parent_space uuid;
-BEGIN
-  IF NEW.parent_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT space_id INTO parent_space
-  FROM   item
-  WHERE  id = NEW.parent_id;
-
-  IF parent_space IS NULL OR parent_space <> NEW.space_id THEN
-    RAISE EXCEPTION
-      USING ERRCODE = '23514',
-            MESSAGE  = 'Parent and child must belong to the same space';
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-```
-* ON: ITEM
-* ON: SPACE
-```sql
-CREATE CONSTRAINT TRIGGER chk_parent_same_space
-AFTER INSERT OR UPDATE OF parent_id, space_id ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION check_parent_same_space();
-```
-? << root folder crud constraint >>
-* FUNC: check_space_root_folder
-```sql
-CREATE OR REPLACE FUNCTION check_space_root_folder()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE it item%ROWTYPE;
-BEGIN
-  SELECT * INTO it FROM item WHERE id = NEW.root_folder_id;
-  IF it.parent_id IS NOT NULL THEN
-    RAISE EXCEPTION 'root_folder_id must reference an item with parent_id IS NULL';
-  END IF;
-  IF it.item_type <> 'folder' THEN
-    RAISE EXCEPTION 'root_folder_id must reference a folder';
-  END IF;
-  IF it.space_id <> NEW.id THEN
-    RAISE EXCEPTION 'root_folder_id must reference an item in the same space';
-  END IF;
-  RETURN NEW;
-END $$;
-```
-* ON: SPACE
-```sql
-CREATE CONSTRAINT TRIGGER chk_space_root_folder
-AFTER INSERT OR UPDATE OF root_folder_id ON space
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION check_space_root_folder();
-```
-? << forbid team access in personal space >>
-* FUNC: chk_no_team_in_personal
-```sql
-CREATE OR REPLACE FUNCTION chk_no_team_in_personal()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE st space.ownership_type%TYPE;
-BEGIN
-  SELECT ownership_type INTO st FROM space WHERE id = NEW.space_id;
-  IF st = 'personal' AND NEW.access_type = 'team' THEN
-    RAISE EXCEPTION 'team access not allowed in personal spaces';
-  END IF;
-  RETURN NEW;
-END $$;
-```
-* ON: ITEM
-```sql
-CREATE CONSTRAINT TRIGGER chk_team_access_personal
-AFTER INSERT OR UPDATE OF access_type, space_id ON item
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION chk_no_team_in_personal();
-```
-? << Cascade all sub item in a tree to trash (like deleting a folder on pc) >> 
-* FUNC: set_trash_subtree
-```sql
-CREATE OR REPLACE FUNCTION set_trash_subtree(_root uuid, _trashed_at timestamptz, _purge_at timestamptz DEFAULT NULL)
-RETURNS void LANGUAGE sql AS $$
-  WITH RECURSIVE sub AS (
-    SELECT id FROM item WHERE id = _root
-    UNION ALL
-    SELECT i.id FROM item i JOIN sub s ON i.parent_id = s.id
-  )
-  UPDATE item i
-  SET trashed_at = _trashed_at,
-      purge_at   = CASE WHEN _trashed_at IS NULL THEN NULL ELSE _purge_at END
-  FROM sub
-  WHERE i.id = sub.id;
-$$;
-```
-*/
-
-/*
-! TRIGGER, Specific Mutation Constraints
-? << make item id immutable >>
-* FUNC: chk_upload_item_id_immutable
-```sql
-CREATE OR REPLACE FUNCTION chk_upload_item_id_immutable()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP = 'UPDATE' AND NEW.item_id <> OLD.item_id THEN
-    RAISE EXCEPTION 'item_id is immutable for an upload_session';
-  END IF;
-  RETURN NEW;
-END $$;
-```
-* ON: UPLOAD_SESSION
-```sql
-CREATE TRIGGER chk_upload_item_id_immutable
-BEFORE UPDATE OF item_id ON upload_session
-FOR EACH ROW EXECUTE FUNCTION chk_upload_item_id_immutable();
-```
-? << make item asset id immutable >>
-* FUNC: chk_item_asset_id_immutable
-```sql
-CREATE OR REPLACE FUNCTION chk_item_asset_id_immutable()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP = 'UPDATE' AND OLD.asset_id IS NOT NULL AND NEW.asset_id IS DISTINCT FROM OLD.asset_id THEN
-    RAISE EXCEPTION 'asset_id is immutable once set';
-  END IF;
-  RETURN NEW;
-END $$;
-```
-* ON: ITEM
-```sql
-CREATE TRIGGER chk_item_asset_id_immutable
-BEFORE UPDATE OF asset_id ON item
-FOR EACH ROW EXECUTE FUNCTION chk_item_asset_id_immutable();
-```
-? << Make core properties on file_asset immutable after insert >>
-* FUNC: chk_file_asset_immutable
-```sql
-CREATE OR REPLACE FUNCTION chk_file_asset_immutable()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP = 'UPDATE' THEN
-    IF NEW.sha256 IS DISTINCT FROM OLD.sha256
-       OR NEW.size_byte IS DISTINCT FROM OLD.size_byte
-       OR NEW.content_type IS DISTINCT FROM OLD.content_type
-       OR NEW.width_px IS DISTINCT FROM OLD.width_px
-       OR NEW.height_px IS DISTINCT FROM OLD.height_px THEN
-      RAISE EXCEPTION 'file_asset core properties are immutable';
-    END IF;
-  END IF;
-  RETURN NEW;
-END $$;
-```
-* ON: FILE_ASSET
-```sql
-DROP TRIGGER IF EXISTS chk_file_asset_immutable_bu ON file_asset;
-CREATE TRIGGER chk_file_asset_immutable_bu
-BEFORE UPDATE ON file_asset
-FOR EACH ROW EXECUTE FUNCTION chk_file_asset_immutable();
-```
-? << Make expected_size immutable after status enters in_progress >>
-* FUNC: chk_expected_size_immutable
-```sql
-CREATE OR REPLACE FUNCTION chk_expected_size_immutable()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'UPDATE'
-     AND NEW.expected_size <> OLD.expected_size
-     AND (OLD.status IN ('in_progress','completed') OR NEW.status IN ('in_progress','completed')) THEN
-    RAISE EXCEPTION 'expected_size cannot change after upload starts';
-  END IF;
-  RETURN NEW;
-END; $$ LANGUAGE plpgsql;
-```
-* ON: UPLOAD_SESSION
-```sql
-CREATE TRIGGER chk_expected_size_immutable
-BEFORE UPDATE OF expected_size, status ON upload_session
-FOR EACH ROW EXECUTE FUNCTION chk_expected_size_immutable();
-```
-? << restrict illegal status transitions >>
-* FUNC: chk_upload_status_transition
-```sql
-CREATE OR REPLACE FUNCTION chk_upload_status_transition()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    IF NEW.status NOT IN ('initiated', 'in_progress') THEN
-      RAISE EXCEPTION 'Invalid initial status %', NEW.status;
-    END IF;
-
-    IF NEW.status = 'completed' AND NEW.completed_at IS NULL THEN
-      RAISE EXCEPTION 'completed_at required on completion';
-    END IF;
-
-  ELSIF TG_OP = 'UPDATE' THEN
-    IF OLD.status = 'initiated'
-       AND NEW.status NOT IN ('initiated', 'in_progress', 'aborted', 'failed') THEN
-      RAISE EXCEPTION 'Invalid transition % -> %', OLD.status, NEW.status;
-    ELSIF OLD.status = 'in_progress'
-       AND NEW.status NOT IN ('in_progress', 'completed', 'aborted', 'failed') THEN
-      RAISE EXCEPTION 'Invalid transition % -> %', OLD.status, NEW.status;
-    ELSIF OLD.status = 'completed' AND NEW.status <> 'completed' THEN
-      RAISE EXCEPTION 'Cannot un-complete a session';
-    END IF;
-
-    IF NEW.status = 'completed' AND NEW.completed_at IS NULL THEN
-      RAISE EXCEPTION 'completed_at required on completion';
-    END IF;
-
-  ELSE
-    RAISE EXCEPTION 'Unexpected trigger operation: %', TG_OP;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-* ON: UPLOAD_SESSION
-```
-CREATE TRIGGER chk_upload_status_transition
-BEFORE INSERT OR UPDATE OF status, completed_at ON upload_session
-FOR EACH ROW
-EXECUTE FUNCTION chk_upload_status_transition();
-```
-*/
-
-//! TRIGGER, General Utils
-/*
-? << Auto change `update_at` col >>
-* FUNC: update_timestamp
-```sql
-CREATE OR REPLACE FUNCTION update_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-   NEW.updated_at = now();
-   RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-* ON: ITEM
-* ON: SPACE
-* ON: UPLOAD_SESSION
-```sql
-DROP TRIGGER IF EXISTS set_timestamp ON item;
-CREATE TRIGGER set_timestamp
-BEFORE UPDATE ON item
-FOR EACH ROW
-EXECUTE FUNCTION update_timestamp();
-
-DROP TRIGGER IF EXISTS set_timestamp ON "space";
-CREATE TRIGGER set_timestamp
-BEFORE UPDATE ON "space"
-FOR EACH ROW
-EXECUTE FUNCTION update_timestamp();
-
-DROP TRIGGER IF EXISTS set_timestamp ON "upload_session";
-CREATE TRIGGER set_timestamp
-BEFORE UPDATE ON "upload_session"
-FOR EACH ROW
-EXECUTE FUNCTION update_timestamp();
-```
-? << Prevent `created_at` updates >>
-* FUNC: forbid_created_at_update
-```sql
-CREATE OR REPLACE FUNCTION forbid_created_at_update()
-RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP = 'UPDATE' AND NEW.created_at IS DISTINCT FROM OLD.created_at THEN
-    RAISE EXCEPTION 'created_at is immutable and cannot be modified';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-```
-* ON: ITEM
-* ON: SPACE
-* ON: UPLOAD_SESSION
-```sql
-DROP TRIGGER IF EXISTS forbid_created_at_update_item ON item;
-CREATE TRIGGER forbid_created_at_update_item
-BEFORE UPDATE OF created_at ON item
-FOR EACH ROW
-EXECUTE FUNCTION forbid_created_at_update();
-
-DROP TRIGGER IF EXISTS forbid_created_at_update_space ON "space";
-CREATE TRIGGER forbid_created_at_update_space
-BEFORE UPDATE OF created_at ON "space"
-FOR EACH ROW
-EXECUTE FUNCTION forbid_created_at_update();
-
-DROP TRIGGER IF EXISTS forbid_created_at_update_upload_session ON upload_session;
-CREATE TRIGGER forbid_created_at_update_upload_session
-BEFORE UPDATE OF created_at ON upload_session
-FOR EACH ROW
-EXECUTE FUNCTION forbid_created_at_update();
-```
 */
 
 /*
@@ -1761,7 +869,6 @@ COMMIT;
 - Team space name uniqueness constraint
 - Setup RLS
   - CRUD db policy per role and table
-- Consider a retention trigger for trash (We're now only implementing hard delete)
 - owned_by to reference a "principal" (user or team) instead of always a user.
 - add an enum for role, a check to ensure "personal" spaces only allow the owner (or auto‑populate)
 */
