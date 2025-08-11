@@ -142,6 +142,7 @@ export const blobStorageClassEnum = pgEnum("blob_storage_class", [
 ]);
 export const blobLocKindEnum = pgEnum("blob_loc_kind", ["canon", "preview"]);
 
+// file_blob_location: Physical storage locator for an asset or its previews; records provider/region/bucket/object_key/version and distinguishes originals vs previews via `kind`. Exactly one canonical location per asset may be `is_primary=true`; previews are uniquely identified by `(asset, item, variant, algo_v, ext)` and must not be primary. Buckets are normalized to lowercase; partial unique indexes enforce safe versioning/region combinations and fast preview lookups.
 export const fileBlobLocation = pgTable(
   "file_blob_location",
   {
@@ -228,7 +229,7 @@ export const fileBlobLocation = pgTable(
   ]
 );
 
-/* FILE ASSET */
+// file_asset: Immutable, content-derived metadata keyed by raw 32-byte `sha256` (dedup). Stores size, content type, optional EXIF/dimensions/GPS/timing, with generated helpers like `sha256_hex`/`sha256_hex24`. Dimensions must be positive if present and provided as a pair; various checks validate rotations, durations, and numeric fields; many items can reference the same asset.
 export const fileAsset = pgTable(
   "file_asset",
   {
@@ -373,7 +374,7 @@ export const fileAsset = pgTable(
   ]
 );
 
-/* ACCESS RANK */
+// access_rank: Small lookup mapping `access_type` strings to a unique positive `rank` for ordering effective permissions. Items reference this (deferrable FK) to validate `access_type`; keep ranks stable to avoid system-wide permission ordering changes.
 export const accessRank = pgTable(
   "access_rank",
   {
@@ -383,7 +384,7 @@ export const accessRank = pgTable(
   (t) => [check("chk_rank_positive", sql`${t.rank} > 0`)]
 );
 
-/* ITEM */
+// item: The file/folder tree (folders have `item_type='folder'`, files have `item_type='file'`) scoped to a `space`, with self-referencing `parent_id`. Semantics are enforced: folders have null size/mime/file_state; files must follow the state machine (only `ready` may have size/mime and link `asset_id`). Supports trash/purge timestamps, access type, and rich browsing indexes; root folders cannot be trashed or scheduled for purge.
 export const item = pgTable(
   "item",
   {
@@ -524,7 +525,7 @@ export const item = pgTable(
   ]
 );
 
-/* SPACE */
+// space: A workspace (personal/team) with a required `root_folder_id` pointing to its root `item`, unique `(owned_by, name, ownership_type)`, and timestamps. `owned_by` is required, `created_by` optional; deleting the root is controlled via space deletion (not via trash on the root).
 export const space = pgTable(
   "space",
   {
@@ -562,7 +563,7 @@ export const space = pgTable(
   ]
 );
 
-/* SPACE MEMBERSHIP, future (beta ?) implementation, this is just a scratch, we'll not export this yet */
+// space_member (scratch): Future team membership join between `space` and `user` using composite PK (`space_id`,`user_id`), optional `role`, and cascade deletes to keep memberships in sync.
 const spaceMember = pgTable(
   "space_member",
   {
@@ -580,7 +581,7 @@ const spaceMember = pgTable(
   (t) => [primaryKey({ columns: [t.spaceId, t.userId] })]
 );
 
-/* UPLOAD SESSION */
+// upload_session: Tracks an object-store upload for an `item` with provider `upload_id`, status, size expectations, and timestamps. Enforces "one active session per item,"" keeps `completed_at` consistent with status, and is indexed for stale/active lookups to drive workers.
 export const uploadSession = pgTable(
   "upload_session",
   {
@@ -630,6 +631,7 @@ export const uploadSession = pgTable(
 );
 
 // a single public ancestor forces everything under it to be effectively public.
+// item_effective_access: Denormalized cache of computed access (smallest `rank` along the ancestor chain) per item within a space. Intended for fast reads and filtering; maintained by server-side logic/workers rather than direct app writes.
 export const itemEffectiveAccess = pgTable(
   "item_effective_access",
   {
@@ -650,6 +652,7 @@ export const itemEffectiveAccess = pgTable(
   ]
 );
 
+// item_effective_recalc_queue: Lightweight queue of "recompute effective access" tasks with PK `(txid, id)` so multiple changes in one transaction coalesce. Workers process in enqueue order; old rows should be periodically pruned to keep the table small.
 export const itemEffectiveAccessRecalcQueue = pgTable(
   "item_effective_recalc_queue",
   {
@@ -665,6 +668,7 @@ export const itemEffectiveAccessRecalcQueue = pgTable(
   ]
 );
 
+// preview_repath_queue: Work queue for moving/copying preview objects when paths/space change; holds all needed storage metadata plus `old_key`/`new_key`, attempt count, and processing timestamps. Uniqueness per `(fbl_id, to_space)` prevents duplicate tasks; workers idempotently copy, update `file_blob_location`, and mark `processed_at` or record `error` with backoff.
 export const previewRepathQueue = pgTable(
   "preview_repath_queue",
   {
