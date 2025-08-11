@@ -212,11 +212,11 @@ export const fileAsset = pgTable(
     sha256Hex: text("sha256_hex").generatedAlwaysAs(
       () => sql`encode(sha256, 'hex')`
     ), // Drizzle auto use sql`STORED`.
-    sha256Prefix12: bytea("sha256_prefix12")
+    sha256Prefix24: bytea("sha256_prefix24")
       .notNull()
-      .generatedAlwaysAs(() => sql`substring(sha256 from 1 for 12)`),
-    sha256Hex12: text("sha256_hex12").generatedAlwaysAs(
-      () => sql`substring(encode(sha256, 'hex') for 12)`
+      .generatedAlwaysAs(() => sql`substring(sha256 from 1 for 24)`),
+    sha256Hex24: text("sha256_hex12").generatedAlwaysAs(
+      () => sql`substring(encode(sha256, 'hex') for 24)`
     ),
 
     // Immutable, intrinsic file properties
@@ -284,7 +284,7 @@ export const fileAsset = pgTable(
   },
   (t) => [
     index("idx_file_asset_taken_at").on(t.takenAt),
-    index("idx_file_asset_sha12").on(t.sha256Prefix12),
+    index("idx_file_asset_sha24").on(t.sha256Prefix24),
     index("idx_file_asset_gps_geom").using("gist", t.gpsGeom),
     index("idx_file_asset_gps_geog").using("gist", t.gpsGeog),
     uniqueIndex("uq_file_asset_sha256").on(t.sha256),
@@ -358,7 +358,7 @@ export const accessRank = pgTable(
 export const item = pgTable(
   "item",
   {
-    id: uuid("id") // used to construct s3 obj key in the format of `spaces/${spaceId}/${itemId}/${sha256:12}/...`
+    id: uuid("id") // used to construct s3 obj key in the format of `spaces/${spaceId}/${itemId}/${sha256:24}/...`
       .primaryKey()
       .default(sql`uuidv7_sub_ms()`),
     parentId: uuid("parent_id"),
