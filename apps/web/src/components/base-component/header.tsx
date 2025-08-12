@@ -23,7 +23,7 @@ export function Header() {
   return (
     <header className="fixed z-50 w-screen bg-white dark:bg-neutral-800 border-b h-[10vh] border-gray-200 dark:border-neutral-700">
       <div className="flex justify-between items-center px-6 py-4">
-        <div className="flex items-center">
+        <a href="/" className="flex items-center" aria-label="Home">
           {isDark ? (
             <img
               src="/base_resource/ipix_logo_white.svg"
@@ -37,7 +37,7 @@ export function Header() {
               className="h-10 sm:h-18 w-auto"
             />
           )}
-        </div>
+        </a>
 
         <div className="flex items-center space-x-4">
           <button
