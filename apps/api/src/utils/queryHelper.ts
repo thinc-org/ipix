@@ -1,6 +1,5 @@
 import { /* sql, exists, */ PgColumn, PgSelect } from "drizzle-orm/pg-core";
 import { storageSchema as s, storageSchema } from "@repo/rdb/schema";
-import { User } from "better-auth";
 import { createDb, DatabaseInstance } from "../drizzle/client";
 import { and, eq, isNull, like, lte, or, sql } from "drizzle-orm";
 
@@ -52,14 +51,14 @@ export async function scopeItemRead<T extends PgSelect>(
   const base = ctx.isOwner
     ? qb
     : qb.innerJoin(
-        storageSchema.itemWithEffectiveAccess,
+        storageSchema.itemEffectiveAccess,
         and(
-          eq(storageSchema.itemWithEffectiveAccess.id, storageSchema.item.id),
+          eq(storageSchema.itemEffectiveAccess.id, storageSchema.item.id),
           eq(
-            storageSchema.itemWithEffectiveAccess.spaceId,
+            storageSchema.itemEffectiveAccess.spaceId,
             storageSchema.item.spaceId
           ),
-          lte(storageSchema.itemWithEffectiveAccess.effectiveRank, 1000)
+          lte(storageSchema.itemEffectiveAccess.effectiveRank, 1000)
         )
       );
 
@@ -67,7 +66,7 @@ export async function scopeItemRead<T extends PgSelect>(
     and(
       eq(storageSchema.item.spaceId, ctx.spaceId),
       eq(storageSchema.item.id, args.itemId),
-      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.trashedDeleteDT)
+      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
     )
   ).limit(1);
 }
@@ -86,14 +85,14 @@ export function scopeItemsRead<T extends PgSelect>(
   const base = ctx.isOwner
     ? qb
     : qb.innerJoin(
-        storageSchema.itemWithEffectiveAccess,
+        storageSchema.itemEffectiveAccess,
         and(
-          eq(storageSchema.itemWithEffectiveAccess.id, storageSchema.item.id),
+          eq(storageSchema.itemEffectiveAccess.id, storageSchema.item.id),
           eq(
-            storageSchema.itemWithEffectiveAccess.spaceId,
+            storageSchema.itemEffectiveAccess.spaceId,
             storageSchema.item.spaceId
           ),
-          lte(storageSchema.itemWithEffectiveAccess.effectiveRank, 1000)
+          lte(storageSchema.itemEffectiveAccess.effectiveRank, 1000)
         )
       );
 
@@ -103,7 +102,7 @@ export function scopeItemsRead<T extends PgSelect>(
       args.parentId === null
         ? isNull(storageSchema.item.parentId)
         : eq(storageSchema.item.parentId, args.parentId),
-      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.trashedDeleteDT),
+      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt),
       args.name ? patternBuilder(storageSchema.item.name, args.name, match) : sql`TRUE`
     )
   );
