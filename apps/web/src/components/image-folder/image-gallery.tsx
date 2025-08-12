@@ -1,5 +1,9 @@
 import { DisplayFile } from "@/components/image-folder/display-file";
 import { Folder } from "./folder";
+import type { storageSchema } from "@repo/rdb/schema";
+
+type ItemRow = typeof storageSchema.item.$inferSelect;
+type ItemWithChildCount = ItemRow & { childCount?: number };
 
 interface ImageGalleryProps {
   isSelectable: boolean;
@@ -49,7 +53,7 @@ export function ImageGallery({
       )}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
         {itemsQuery.isSuccess
-          ? itemsQuery.data.data?.data?.items?.map((item: any) => {
+          ? itemsQuery.data.data?.data?.items?.map((item: ItemWithChildCount) => {
               if (item.itemType === "folder")
                 return (
                   <Folder
@@ -59,7 +63,7 @@ export function ImageGallery({
                       spaceId: item.spaceId,
                       name: item.name,
                       parent: item.parentId,
-                      imageCount: item.childCount,
+                      imageCount: item.childCount ?? 0,
                     }}
                   />
                 );
@@ -70,7 +74,7 @@ export function ImageGallery({
                     file={{
                       id: item.id,
                       name: item.name || "Untitled",
-                      url: item.previewId,
+                      url: "", // TODO: preview URL to be wired later
                       uploadDate: item.createdAt,
                       parent: item.parentId ?? "",
                       size: "1",
