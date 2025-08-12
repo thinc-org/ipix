@@ -176,6 +176,20 @@
       "when": 1754934021506,
       "tag": "0024_worker_func",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1755008114868,
+      "tag": "0025_upload_col",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1755009645093,
+      "tag": "0026_upload_col2",
+      "breakpoints": true
     }
   ]
 }
