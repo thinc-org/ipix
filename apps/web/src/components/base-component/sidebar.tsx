@@ -1,4 +1,4 @@
-import { use, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -36,7 +36,7 @@ export function Sidebar({
     (user.storageSpaceUsed / user.storageSpaceAll) * 100
   );
   const { data } = useAssociatedSpace();
-  const spaces = data?.data?.data.mySpace ?? [];
+  const spaces = data?.data?.mySpace ?? [];
 
   return (
     <div className="fixed top-[10vh] h-[90vh] z-50 text-lg">

@@ -23,7 +23,7 @@ export function CreateFolderButton({
 }: {
   variant?: ButtonVariant;
   spaceId: string;
-  parentId?: string;
+  parentId: string;
   withTrigger?: boolean;
 }) {
   const inputFolderName = useRef<HTMLInputElement>(null);
@@ -40,7 +40,7 @@ export function CreateFolderButton({
     const folderName = name.trim();
     if (!canCreate || !folderName) return;
     mutation.mutate(
-      { spaceId, name: folderName, parentId: parentId ?? null },
+      { spaceId, name: folderName, parentId: parentId},
       {
         onSuccess: () => {
           // clear field; dialog will be closed by mutation's onSuccess in hook.ts

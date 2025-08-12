@@ -4,13 +4,15 @@ import { useAuth } from "@/lib/better-auth/auth-hooks";
 import { FileToolBar } from "@/components/image-folder/file-tool-bar";
 import { ImageGallery } from "@/components/image-folder/image-gallery";
 import { useImageSelection } from "@/hooks/image/useImageSelection";
+import { useIsAssociatedWithSpace } from "@/features/space/hook";
+import { useItemsByFolder, useRootFolder } from "@/features/item/hook";
 
 export function SpacePage({
   spaceInfo,
 }: {
   spaceInfo: {
     spaceId: string;
-    folderId?: string;
+    folderId: string;
   };
 }) {
   const { session } = useAuth();
@@ -24,6 +26,25 @@ export function SpacePage({
 
   const { isSelectable, selectedImageKeys, toggleSelectable, toggleCheckbox } =
     useImageSelection();
+
+  // Authorization: is user associated with this space?
+  const isAllowed = useIsAssociatedWithSpace({
+    searchString: spaceInfo.spaceId,
+    match: "id",
+  });
+
+  // Determine effective folder: provided folderId or the root folder of the space
+  const rootQuery = useRootFolder(
+    spaceInfo.folderId ? undefined : spaceInfo.spaceId
+  );
+  const rootFolder = rootQuery.data?.data?.data?.item;
+  const effectiveFolderId = spaceInfo.folderId || rootFolder?.id;
+
+  // Items within the effective folder
+  const itemsQuery = useItemsByFolder({
+    spaceId: spaceInfo.spaceId,
+    folderId: effectiveFolderId,
+  });
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -54,10 +75,8 @@ export function SpacePage({
           isSelectable={isSelectable}
           selectedImageKeys={selectedImageKeys}
           onToggleCheckbox={toggleCheckbox}
-          spaceInfo={{
-            spaceId: spaceInfo.spaceId,
-            folderId: spaceInfo.folderId,
-          }}
+          isAllowed={isAllowed}
+          itemsQuery={itemsQuery}
         />
       </div>
     </div>

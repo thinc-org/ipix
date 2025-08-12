@@ -1,16 +1,20 @@
 import { DisplayFile } from "@/components/image-folder/display-file";
-import { useItemsByFolder, useRootFolder } from "@/features/item/hook";
-import { useIsAssociatedWithSpace } from "@/features/space/hook";
-import { useImageBatchFetch } from "@/hooks/image/useImageBatchFetch";
 import { Folder } from "./folder";
 
 interface ImageGalleryProps {
   isSelectable: boolean;
   selectedImageKeys: string[];
   onToggleCheckbox: (key: string) => void;
-  spaceInfo: {
-    spaceId: string;
-    folderId?: string;
+  // Query states are provided by parent to keep this component presentational
+  isAllowed: {
+    isError: boolean;
+    isLoading: boolean;
+    error?: unknown;
+  };
+  itemsQuery: {
+    isFetching: boolean;
+    isSuccess: boolean;
+    data?: any;
   };
 }
 
@@ -18,25 +22,10 @@ export function ImageGallery({
   isSelectable,
   selectedImageKeys,
   onToggleCheckbox,
-  spaceInfo,
+  isAllowed,
+  itemsQuery,
 }: ImageGalleryProps) {
-  const isAllowed = useIsAssociatedWithSpace({
-    searchString: spaceInfo.spaceId,
-    match: "id",
-  });
-
-  let rootFolder;
-  if (!spaceInfo.folderId) {
-    const rootQuery = useRootFolder(spaceInfo.spaceId);
-    rootFolder = rootQuery.data?.data?.data.item;
-  }
-
-  const effectiveFolderId = spaceInfo.folderId ?? rootFolder?.id;
-
-  const itemsQuery = useItemsByFolder({
-    spaceId: spaceInfo.spaceId,
-    folderId: effectiveFolderId,
-  });
+  // All fetching logic has been moved to the parent component.
 
   return (
     <div className="flex flex-col items-center min-h-screen box-border font-sans pl-[20vw]">
@@ -60,7 +49,7 @@ export function ImageGallery({
       )}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
         {itemsQuery.isSuccess
-          ? itemsQuery.data.data?.data?.items?.map((item) => {
+          ? itemsQuery.data.data?.data?.items?.map((item: any) => {
               if (item.itemType === "folder")
                 return (
                   <Folder

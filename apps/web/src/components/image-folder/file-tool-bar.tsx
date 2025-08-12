@@ -9,7 +9,7 @@ interface FileToolBarProps {
   selectedImageKeys: string[];
   spaceInfo: {
     spaceId: string;
-    folderId?: string;
+    folderId: string;
   };
   onCancel: () => void;
   onDelete: () => void;

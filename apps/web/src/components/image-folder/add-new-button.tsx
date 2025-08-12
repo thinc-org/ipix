@@ -9,7 +9,7 @@ export function AddNewButton({
   parentId,
 }: {
   spaceId: string;
-  parentId?: string;
+  parentId: string;
 }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

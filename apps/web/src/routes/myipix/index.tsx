@@ -9,7 +9,7 @@ export const Route = createFileRoute("/myipix/")({
 function RouteComponent() {
   const getMyIpix = useAssociatedSpace({ searchString: "myipix", match: "exact" });
 
-  const space = getMyIpix.data?.data?.data?.mySpace;
+  const space = getMyIpix.data?.data?.mySpace;
   console.log(space);
   
   if (getMyIpix.isLoading) return <div>Loading…</div>;
@@ -19,7 +19,7 @@ function RouteComponent() {
   
   return (
     <div>
-      <SpacePage spaceInfo={{ spaceId: myIpix.id }} />
+      <SpacePage spaceInfo={{ spaceId: myIpix.id, folderId: myIpix.rootFolderId }} />
     </div>
   );
 }
