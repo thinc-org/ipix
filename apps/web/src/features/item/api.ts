@@ -1,5 +1,6 @@
 import app from '@/lib/fetch';
 import type { MatchType } from '../../../../api/src/utils/queryHelper';
+import type { GetAssociatedSpaceResponse } from '../space/api';
 
 export type AncestorsQuery = {
   spaceId: string;
@@ -24,24 +25,28 @@ export type CreateFolderType = {
 }
 
 export async function getAncestors(query: AncestorsQuery) {
-  // Only send defined fields to avoid "undefined is not assignable to string"
-  return app.item.ancestors.get({ query: compact(query) });
+  // GET /v1/spaces/:spaceId/items/:itemId/ancestors
+  const { spaceId, itemId } = query;
+  // API doesn't accept additional query; only params are required
+  return app.v1.spaces({ spaceId }).items({ itemId }).ancestors.get();
 }
 
-export async function getItemById(itemId: string) {
-  return null // TODO
-}
-
-export async function getRootFolder(spaceId: string) {
-  return app.item.item.get({query:{ spaceId: spaceId, searchString: spaceId, match: 'exact'} })
+export async function getItemById(_itemId: string) {
+  return null; // TODO
 }
 
 export async function getItemsByFolder(query: ItemsByFolderQuery) {
-  return app.item.items.get({ query: compact(query) })
+  const { spaceId, folderId, sortField, dir, includeTrash, searchString, match } = query;
+  // GET /v1/spaces/:spaceId/items?folderId=...
+  return app.v1.spaces({ spaceId }).items.get({
+    query: compact({ folderId, sortField, dir, includeTrash, searchString, match }),
+  } as any);
 }
 
 export async function createFolder(body: CreateFolderType) {
-  return app.item.folder.post(body)
+  const { spaceId, parentId, name } = body;
+  // POST /v1/spaces/:spaceId/items/folders
+  return app.v1.spaces({ spaceId }).items.folders.post({ parentId, name } as any);
 }
 
 function compact<T extends Record<string, unknown>>(obj: T): T {

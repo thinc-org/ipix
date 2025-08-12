@@ -10,15 +10,13 @@ interface ImageGalleryProps {
   selectedImageKeys: string[];
   onToggleCheckbox: (key: string) => void;
   // Query states are provided by parent to keep this component presentational
-  isAllowed: {
-    isError: boolean;
-    isLoading: boolean;
-    error?: unknown;
-  };
   itemsQuery: {
     isFetching: boolean;
+    isLoading: boolean;
+    isError: boolean;
     isSuccess: boolean;
     data?: any;
+    error?: unknown;
   };
 }
 
@@ -26,22 +24,21 @@ export function ImageGallery({
   isSelectable,
   selectedImageKeys,
   onToggleCheckbox,
-  isAllowed,
   itemsQuery,
 }: ImageGalleryProps) {
   // All fetching logic has been moved to the parent component.
 
   return (
     <div className="flex flex-col items-center min-h-screen box-border font-sans pl-[20vw]">
-      {isAllowed.isError && (
+      {itemsQuery.isError && (
         <div className="text-3xl font-bold mb-8 text-red-600">
           Failed to load space
-          {isAllowed.error instanceof Error
-            ? `: ${isAllowed.error.message}`
+          {itemsQuery.error instanceof Error
+            ? `: ${itemsQuery.error.message}`
             : "."}
         </div>
       )}
-      {isAllowed.isLoading && (
+      {itemsQuery.isLoading && (
         <div className="text-3xl font-bold mb-8 text-gray-800">
           Loading space…
         </div>

@@ -14,7 +14,8 @@ export type GetAssociatedSpaceResponse = {
 };
 
 export async function getAssociatedSpace(query?: { searchString?: string; match?: MatchType }): Promise<GetAssociatedSpaceResponse> {
-  const res = await app.space['associated-space'].get({ query: compact(query ?? {}) });
+  // GET /v1/spaces?searchString=...&match=...
+  const res = await app.v1.spaces.get({ query: compact(query ?? {}) });
   if ((res as any).error) throw (res as any).error;
   return (res as any).data as GetAssociatedSpaceResponse;
 }
@@ -25,7 +26,8 @@ export type CreateSpaceResponse = {
 };
 
 export async function createSpace(body: { name: string; ownershipType: RequiredOwnershipType }): Promise<CreateSpaceResponse> {
-  const res = await app.space['create-space'].post(body);
+  // POST /v1/spaces
+  const res = await app.v1.spaces.post(body);
   if ((res as any).error) throw (res as any).error;
   return (res as any).data as CreateSpaceResponse;
 }

@@ -4,15 +4,16 @@ import { betterAuthMiddleware } from "../auth/route";
 import { createDb } from "../../drizzle/client";
 import { eq } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
-import { getColumnLength, MatchType, withMatch } from "../../utils/queryHelper";
+import { MatchType, withMatch } from "../../utils/queryHelper";
 import { citextConfig } from "../../../../../packages/rdb/src/schemas/storage";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
-export const spaceRouter = new Elysia({ prefix: "/space" })
+// Versioned space routes: /v1/spaces
+export const spaceRouter = new Elysia({ prefix: "/v1" })
   .use(betterAuthMiddleware)
   .get(
-    "/associated-space",
+  "/spaces",
     async ({ params, query, set, user }) => {
       try {
         let queryDb = db
@@ -53,7 +54,7 @@ export const spaceRouter = new Elysia({ prefix: "/space" })
     }
   )
   .post(
-    "/create-space",
+  "/spaces",
     async ({ body, set, user }) => {
       try {
         // Create root folder item and space with cross references in a single transaction

@@ -1,74 +1,66 @@
 import { Elysia, t } from "elysia";
 import { betterAuthMiddleware } from "../auth/route";
 import { createDb } from "../../drizzle/client";
-import { and, asc, desc, eq, isNull, or, sql, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql, inArray, lte } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
 import {
-  getColumnLength,
   loadAccessContext,
   MatchType,
   scopeItemRead,
   scopeItemsRead,
-  withMatch,
 } from "../../utils/queryHelper";
 import { citextConfig } from "../../../../../packages/rdb/src/schemas/storage";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
-export const itemRouter = new Elysia({ prefix: "/item" })
+// Versioned, nested routes: /v1/spaces/:spaceId/items
+export const itemRouter = new Elysia({ prefix: "/v1" })
   .use(betterAuthMiddleware)
-  .get('/item', 
-    async ({ query, user, set }) => {
+  // GET /v1/spaces/:spaceId/items/:itemId - fetch a single item; if folder, include direct childCount
+  .get(
+    "/spaces/:spaceId/items/:itemId",
+    async ({ params, query, user, set }) => {
       try {
-        const ctx = await loadAccessContext(
-          db,
-          user?.id ?? null,
-          query.spaceId
-        );
+        const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
 
-        let qb = scopeItemsRead(
-          db.select().from(storageSchema.item).$dynamic(),
-          ctx,
-          {
-            parentId: query.folderId ?? null,
-            includeTrash: !!query.includeTrash,
-            name: query.searchString ?? undefined,
-            match: query.match ?? undefined
-          }
-        );
+        // Authorization check for item visibility within the space
+        const haveAccess = await scopeItemRead(ctx, {
+          itemId: params.itemId,
+          includeTrash: !!query?.includeTrash,
+        });
+        if (haveAccess.length === 0) {
+          set.status = 403;
+          return { success: false, data: { message: "You are not authorized to view this content" } };
+        }
 
-        // Drizzle returns different row shapes depending on whether we joined
-        // (owner: flat item row, non-owner: { item, itemWithEffectiveAccess }).
-        // Normalize to a flat item row for a consistent API contract.
-        const rows = await qb.limit(1);
-        const items: typeof storageSchema.item.$inferSelect[] = (rows as any[]).map((r) =>
-          "item" in r ? (r.item as typeof storageSchema.item.$inferSelect) : (r as typeof storageSchema.item.$inferSelect)
-        );
+        const rows = await db
+          .select()
+          .from(storageSchema.item)
+          .where(and(eq(storageSchema.item.spaceId, params.spaceId), eq(storageSchema.item.id, params.itemId)));
+        const item = rows[0] as typeof storageSchema.item.$inferSelect | undefined;
 
-        let item = items[0]
+        if (!item) {
+          set.status = 404;
+          return { success: false, data: { message: "Item not found" } };
+        }
 
-        // If it's a folder, compute its direct child count using the same visibility rules
-        if (item && item.itemType === "folder") {
+        if (item.itemType === "folder") {
           const childCountRow = await (async () => {
             if (ctx.isOwner) {
               const res = await db
-                .select({
-                  count: sql<number>`cast(count(*) as int)`,
-                })
+                .select({ count: sql<number>`cast(count(*) as int)` })
                 .from(storageSchema.item)
                 .where(
                   and(
                     eq(storageSchema.item.spaceId, ctx.spaceId),
                     eq(storageSchema.item.parentId, item.id),
-                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                    query?.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
                   )
                 );
               return res[0];
             } else {
               const res = await db
-                .select({
-                  count: sql<number>`cast(count(*) as int)`,
-                })
+                .select({ count: sql<number>`cast(count(*) as int)` })
                 .from(storageSchema.item)
                 .innerJoin(
                   storageSchema.itemEffectiveAccess,
@@ -82,14 +74,15 @@ export const itemRouter = new Elysia({ prefix: "/item" })
                   and(
                     eq(storageSchema.item.spaceId, ctx.spaceId),
                     eq(storageSchema.item.parentId, item.id),
-                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                    query?.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
                   )
                 );
               return res[0];
             }
           })();
 
-          item = { ...(item as any), childCount: childCountRow ? Number(childCountRow.count) : 0 };
+          const withCount = { ...(item as any), childCount: childCountRow ? Number((childCountRow as any).count) : 0 };
+          return { success: true, data: { item: withCount } };
         }
 
         return { success: true, data: { item } };
@@ -100,27 +93,24 @@ export const itemRouter = new Elysia({ prefix: "/item" })
     },
     {
       auth: { allowPublic: true },
-      query: t.Object({
+      params: t.Object({
         spaceId: t.String({ format: "uuid" }),
-        folderId: t.Optional(t.String({ format: "uuid" })),
-        includeTrash: t.Optional(t.Boolean({ default: false })),
-        searchString: t.Optional(t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength})),
-        match: t.Optional(t.Enum(MatchType)),
+        itemId: t.String({ format: "uuid" }),
       }),
+      query: t.Optional(
+        t.Object({
+          includeTrash: t.Optional(t.Boolean({ default: false })),
+        })
+      ),
     }
-
   )
   .get(
-    "/ancestors",
-    async ({ params, query, set, user }) => {
+    "/spaces/:spaceId/items/:itemId/ancestors",
+    async ({ params, set, user }) => {
       try {
-        const ctx = await loadAccessContext(
-          db,
-          user?.id ?? null,
-          query.spaceId
-        );
+        const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
         const haveAccess = await scopeItemRead(ctx, {
-          itemId: query.itemId,
+          itemId: params.itemId,
           includeTrash: true,
         });
 
@@ -132,18 +122,14 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           };
         }
 
-        console.log(haveAccess);
-
-        const guard = query.spaceId
-          ? sql`AND space_id = ${query.spaceId}`
-          : sql``;
+        const guard = params.spaceId ? sql`AND space_id = ${params.spaceId}` : sql``;
 
         const result = await db.execute(sql`
           WITH RECURSIVE parents AS (
             /* seed = the starting item (depth 0) */
             SELECT *
             FROM   ${storageSchema.item} AS i
-            WHERE  i.id = ${query.itemId}
+            WHERE  i.id = ${params.itemId}
               ${guard}
 
             UNION ALL
@@ -156,7 +142,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           /* ignore the seed if you only want ancestors */
           SELECT *
           FROM   parents
-          WHERE  id <> ${query.itemId}
+          WHERE  id <> ${params.itemId}
           ORDER  BY created_at ASC;   -- customise: root→leaf or leaf→root
         `);
 
@@ -172,22 +158,21 @@ export const itemRouter = new Elysia({ prefix: "/item" })
       }
     },
     {
-      query: t.Object({
+      params: t.Object({
         spaceId: t.String({ format: "uuid" }),
-        parentId: t.Nullable(t.String({ format: "uuid" })),
         itemId: t.String({ format: "uuid" }),
       }),
       auth: { allowPublic: true },
     }
   )
   .post(
-    "/folder",
-    async ({ body, user }) => {
+    "/spaces/:spaceId/items/folders",
+    async ({ params, body, user }) => {
       const newFolder = await db
         .insert(storageSchema.item)
         .values({
           name: body.name,
-          spaceId: body.spaceId,
+          spaceId: params.spaceId,
           parentId: body.parentId,
           createdBy: user!.id,
           accessType: "owner",
@@ -200,15 +185,17 @@ export const itemRouter = new Elysia({ prefix: "/item" })
     {
       auth: { allowPublic: false },
       body: t.Object({
-        spaceId: t.String({ format: "uuid" }),
         parentId: t.Nullable(t.String({ format: "uuid" })),
         name: t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength}),
+      }),
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
       }),
     }
   )
   .get(
-    "/items",
-    async ({ query, user, set }) => {
+    "/spaces/:spaceId/items",
+    async ({ params, query, user, set }) => {
       try {
         const dirFn = query.dir === "desc" ? desc : asc;
 
@@ -226,13 +213,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
 
         const orderCol = sortMap[query.sortField as keyof typeof sortMap];
 
-        const ctx = await loadAccessContext(
-          db,
-          user?.id ?? null,
-          query.spaceId
-        );
-
-        console.log(query);
+  const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
 
         let qb = scopeItemsRead(
           db.select().from(storageSchema.item).$dynamic(),
@@ -329,7 +310,6 @@ export const itemRouter = new Elysia({ prefix: "/item" })
     {
       auth: { allowPublic: true },
       query: t.Object({
-        spaceId: t.String({ format: "uuid" }),
         folderId: t.String({ format: "uuid" }),
         sortField: t.Optional(t.String({ default: "name" })),
         dir: t.Optional(
@@ -338,6 +318,9 @@ export const itemRouter = new Elysia({ prefix: "/item" })
         includeTrash: t.Optional(t.Boolean({ default: false })),
         searchString: t.Optional(t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength})),
         match: t.Optional(t.Enum(MatchType)),
+      }),
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
       }),
     }
   );

@@ -40,15 +40,6 @@ export function useItemById(itemId?: string) {
   });
 }
 
-export function useRootFolder(spaceId?: string) {
-  return useQuery({
-    queryKey: spaceId ? itemKeys.byRootFolder(spaceId) : ["disabled"],
-    queryFn: () => itemApi.getRootFolder(spaceId!),
-    enabled: !!spaceId,
-    staleTime: 5 * 60_000,
-  });
-}
-
 // Accept undefined IDs at the hook boundary so callers can pass through
 // potentially undefined values and rely on `enabled` to guard execution.
 type ItemsByFolderParams = Omit<
