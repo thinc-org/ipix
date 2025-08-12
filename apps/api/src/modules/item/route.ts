@@ -104,67 +104,6 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
       ),
     }
   )
-  .get(
-    "/spaces/:spaceId/items/:itemId/ancestors",
-    async ({ params, set, user }) => {
-      try {
-        const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
-        const haveAccess = await scopeItemRead(ctx, {
-          itemId: params.itemId,
-          includeTrash: true,
-        });
-
-        if (haveAccess.length === 0) {
-          set.status = 403;
-          return {
-            success: false,
-            data: { message: "You are not authorized to view this content" },
-          };
-        }
-
-        const guard = params.spaceId ? sql`AND space_id = ${params.spaceId}` : sql``;
-
-        const result = await db.execute(sql`
-          WITH RECURSIVE parents AS (
-            /* seed = the starting item (depth 0) */
-            SELECT *
-            FROM   ${storageSchema.item} AS i
-            WHERE  i.id = ${params.itemId}
-              ${guard}
-
-            UNION ALL
-
-            /* recursive step: climb one level up */
-            SELECT p.*
-            FROM   ${storageSchema.item} AS p
-            JOIN   parents c ON c.parent_id = p.id
-          )
-          /* ignore the seed if you only want ancestors */
-          SELECT *
-          FROM   parents
-          WHERE  id <> ${params.itemId}
-          ORDER  BY created_at ASC;   -- customise: root→leaf or leaf→root
-        `);
-
-        const ancestors = result.rows;
-
-        return {
-          success: true,
-          data: { ancestors: result.rows, ancestorsCount: result.rowCount },
-        };
-      } catch (e) {
-        set.status = 500;
-        return { success: false, data: { error: e } };
-      }
-    },
-    {
-      params: t.Object({
-        spaceId: t.String({ format: "uuid" }),
-        itemId: t.String({ format: "uuid" }),
-      }),
-      auth: { allowPublic: true },
-    }
-  )
   .post(
     "/spaces/:spaceId/items/folders",
     async ({ params, body, user }) => {
@@ -213,7 +152,17 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
 
         const orderCol = sortMap[query.sortField as keyof typeof sortMap];
 
-  const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
+        const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
+
+        // Ensure caller can access the folder itself (mirror /ancestors auth)
+        const canAccessFolder = await scopeItemRead(ctx, {
+          itemId: query.folderId,
+          includeTrash: true,
+        });
+        if (canAccessFolder.length === 0) {
+          set.status = 403;
+          return { success: false, data: { message: "You are not authorized to view this content" } };
+        }
 
         let qb = scopeItemsRead(
           db.select().from(storageSchema.item).$dynamic(),
@@ -301,7 +250,29 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           );
         }
 
-        return { success: true, data: { items: itemsOut } };
+        // Compute ancestors of the current folder (exclude the folder itself; root is an abstraction)
+        const guard = params.spaceId ? sql`AND space_id = ${params.spaceId}` : sql``;
+        const ancestorsRes = await db.execute(sql`
+          WITH RECURSIVE parents AS (
+            SELECT *
+            FROM   ${storageSchema.item} AS i
+            WHERE  i.id = ${query.folderId}
+              ${guard}
+
+            UNION ALL
+
+            SELECT p.*
+            FROM   ${storageSchema.item} AS p
+            JOIN   parents c ON c.parent_id = p.id
+          )
+          SELECT *
+          FROM   parents
+          WHERE  id <> ${query.folderId}
+          ORDER  BY created_at ASC;
+        `);
+        const ancestors = ancestorsRes.rows;
+
+        return { success: true, data: { items: itemsOut, ancestors, ancestorsCount: ancestorsRes.rowCount } };
       } catch (e) {
         set.status = 500;
         return { success: false, data: { error: e } };
