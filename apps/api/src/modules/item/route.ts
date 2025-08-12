@@ -11,6 +11,7 @@ import {
   scopeItemsRead,
   withMatch,
 } from "../../utils/queryHelper";
+import { citextConfig } from "../../../../../packages/rdb/src/schemas/storage";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
@@ -58,7 +59,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
         spaceId: t.String({ format: "uuid" }),
         folderId: t.Optional(t.String({ format: "uuid" })),
         includeTrash: t.Optional(t.Boolean({ default: false })),
-        searchString: t.Optional(t.String({ maxLength: getColumnLength(storageSchema.item.name)})),
+        searchString: t.Optional(t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength})),
         match: t.Optional(t.Enum(MatchType)),
       }),
     }
@@ -145,6 +146,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           parentId: body.parentId,
           createdBy: user!.id,
           accessType: "owner",
+          itemType: "folder",
         })
         .returning();
 
@@ -155,7 +157,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
       body: t.Object({
         spaceId: t.String({ format: "uuid" }),
         parentId: t.Nullable(t.String({ format: "uuid" })),
-        name: t.String({ maxLength: getColumnLength(storageSchema.item.name)}),
+        name: t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength}),
       }),
     }
   )
@@ -184,6 +186,8 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           user?.id ?? null,
           query.spaceId
         );
+
+        console.log(query);
 
         let qb = scopeItemsRead(
           db.select().from(storageSchema.item).$dynamic(),
@@ -222,7 +226,7 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           t.Enum({ asc: "asc", desc: "desc" }, { default: "asc" })
         ),
         includeTrash: t.Optional(t.Boolean({ default: false })),
-        searchString: t.Optional(t.String({ maxLength: getColumnLength(storageSchema.item.name)})),
+        searchString: t.Optional(t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength})),
         match: t.Optional(t.Enum(MatchType)),
       }),
     }

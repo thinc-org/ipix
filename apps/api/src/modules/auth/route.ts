@@ -1,4 +1,5 @@
 import { Context, Elysia, t } from "elysia";
+import { randomUUID } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAuthMiddleware, openAPI } from "better-auth/plugins";
@@ -13,20 +14,33 @@ export const auth = betterAuth({
       create: {
         after: async (user, ctx) => {
           await db.transaction(async (tx) => {
-            const [defaultSpace] = await tx.insert(storageSchema.space).values({
-              name: 'myipix',
-              type: 'personal',
-              accessType: 'owner',
-              createdBy: user.id,
-              ownedBy: user.id
-            }).returning()
-            const rootFolder = await tx.insert(storageSchema.item).values({
-              name: defaultSpace.id,
-              spaceId: defaultSpace.id,
-              parentId: null,
-              createdBy: user.id,
-              accessType: 'owner'
-            })
+            const spaceId = randomUUID();
+            const rootItemId = randomUUID();
+
+            // Create a default personal space with a linked root folder
+            const [defaultSpace] = await tx
+              .insert(storageSchema.space)
+              .values({
+                id: spaceId,
+                name: "myipix",
+                ownershipType: "personal",
+                rootFolderId: rootItemId,
+                createdBy: user.id,
+                ownedBy: user.id,
+              })
+              .returning();
+
+            await tx
+              .insert(storageSchema.item)
+              .values({
+                id: rootItemId,
+                parentId: null,
+                spaceId: spaceId,
+                createdBy: user.id,
+                name: "myipix",
+                itemType: "folder",
+              })
+              .returning();
           })
         }
       }

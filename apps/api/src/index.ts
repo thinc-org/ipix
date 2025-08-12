@@ -20,9 +20,9 @@ const app = new Elysia()
   .use(betterAuthMiddleware)
   .use(cron({
     name: 'alphaViewRefresh',
-    pattern: '*/1 * * * * *',
+    pattern: '0 */4 * * *',
     async run() {
-      await db.execute(sql`REFRESH MATERIALIZED VIEW CONCURRENTLY public.item_with_effective_access`)
+      await db.execute(sql`DELETE FROM item_effective_recalc_queue WHERE enqueued_at < now() - interval '2 days';`)
     }
   }))
   .use(
