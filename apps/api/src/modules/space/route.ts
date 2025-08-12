@@ -5,7 +5,8 @@ import { createDb } from "../../drizzle/client";
 import { eq } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
 import { MatchType, withMatch } from "../../utils/queryHelper";
-import { citextConfig } from "../../../../../packages/rdb/src/schemas/storage";
+import { citextConfig, spaceInsertSchema } from "../../../../../packages/rdb/src/schemas/storage";
+
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
@@ -101,14 +102,7 @@ export const spaceRouter = new Elysia({ prefix: "/v1" })
           minLength: citextConfig.minLength,
           maxLength: citextConfig.maxLength,
         }),
-        ownershipType: t.Enum(
-          Object.fromEntries(
-            storageSchema.space.ownershipType.enumValues.map((val) => [
-              val,
-              val,
-            ])
-          )
-        ),
+        ownershipType: spaceInsertSchema.properties.ownershipType,
       }),
       auth: { allowPublic: false },
     }
