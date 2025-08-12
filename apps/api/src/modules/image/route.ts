@@ -8,6 +8,7 @@ import {
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { GetFederationTokenCommand } from "@aws-sdk/client-sts";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -26,7 +27,8 @@ import { PassThrough, Readable } from "node:stream";
 import { createDb } from "../../drizzle/client.js";
 import { storageSchema } from "../../../../../packages/rdb/src/schema.js";
 import { item } from "../../../../../packages/rdb/src/schemas/storage.js";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
+import { loadAccessContext } from "../../utils/queryHelper.js";
 
 const generateKey = () => Bun.randomUUIDv7();
 const isValidPartNumber = (n: number) =>
@@ -105,7 +107,10 @@ SIMPLE PUT OBJECT (non-multipart)
 
       return { url, method: "PUT" };
     },
-    { query: t.Object({ filename: t.String(), type: t.String() }), auth: {allowPublic: false} }
+    {
+      query: t.Object({ filename: t.String(), type: t.String() }),
+      auth: { allowPublic: false },
+    }
   )
   .post(
     "/sign",
@@ -134,7 +139,10 @@ SIMPLE PUT OBJECT (non-multipart)
 
       return { url, method: "PUT" };
     },
-    { body: t.Object({ filename: t.String(), type: t.String() }), auth: {allowPublic: false} }
+    {
+      body: t.Object({ filename: t.String(), type: t.String() }),
+      auth: { allowPublic: false },
+    }
   )
 
   /*
@@ -162,7 +170,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         return { error: "You are not allowed to upload this type of file" };
       }
 
-      const key = generateKey()
+      const key = generateKey();
 
       const url = await getSignedUrl(
         s3,
@@ -187,7 +195,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         size: t.Optional(t.Number()),
       }),
 
-      auth: {allowPublic: false},
+      auth: { allowPublic: false },
     }
   )
 
@@ -268,7 +276,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
         ),
       }),
 
-      auth: {allowPublic: false},
+      auth: { allowPublic: false },
     }
   )
 
@@ -304,7 +312,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       params: t.Object({ uploadId: t.String(), partNumber: t.String() }),
       query: t.Object({ key: t.String() }),
 
-      auth: {allowPublic: false},
+      auth: { allowPublic: false },
     }
   )
 
@@ -336,7 +344,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     {
       params: t.Object({ uploadId: t.String() }),
       query: t.Object({ key: t.String() }),
-      auth: {allowPublic: false},
+      auth: { allowPublic: false },
     }
   )
 
@@ -376,7 +384,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       body: t.Object({
         parts: t.Array(t.Object({ PartNumber: t.Number(), ETag: t.String() })),
       }),
-      auth: {allowPublic: false},
+      auth: { allowPublic: false },
     }
   )
 
@@ -402,7 +410,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       params: t.Object({ uploadId: t.String() }),
       query: t.Object({ key: t.String() }),
 
-      auth: {allowPublic: false},
+      auth: { allowPublic: false },
     }
   )
 
@@ -439,7 +447,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     {
       params: t.Object({ imageKey: t.String() }),
       query: t.Object({ download: t.Optional(t.String()) }),
-      auth: {allowPublic: true},
+      auth: { allowPublic: true },
     }
   )
 
@@ -527,7 +535,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       body: t.Object({
         imageKeys: t.Array(t.String()),
       }),
-      auth: {allowPublic: true},
+      auth: { allowPublic: true },
     }
   )
 
@@ -561,7 +569,7 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     },
     {
       body: t.Object({ keys: t.Array(t.String()) }),
-      auth: {allowPublic: true},
+      auth: { allowPublic: true },
     }
   )
   .get(
@@ -589,13 +597,13 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
       return { imageKeys };
     },
     {
-      auth: {allowPublic: true},
+      auth: { allowPublic: true },
     }
   )
   .post(
     "/download-image-keys",
     async ({ body, set }) => {
-      const keys  = body.keys;
+      const keys = body.keys;
       if (!keys || keys.length == 0) {
         set.status = 400;
         return { error: "keys must not be a empty array" };
@@ -623,6 +631,90 @@ BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
     },
     {
       body: t.Object({ keys: t.Array(t.String()) }),
-      auth: {allowPublic: true},
+      auth: { allowPublic: true },
+    }
+  )
+  .post(
+    "/delete-batch-image",
+    async ({ body, set, user, query }) => {
+      const { img } = body;
+      if (!img || img.length == 0) {
+        set.status = 400;
+        return { error: "img must not be a empty array" };
+      }
+      const db = createDb();
+      const ctx = await loadAccessContext(db, user?.id ?? null, query.spaceId);
+      if (!ctx.isOwner) {
+        return {
+          status: 403,
+          error: "You do not have permission to delete images in this space.",
+        };
+      }
+
+      const s3Deletion = await Promise.all(
+        img.map(async ({ key, name }) => {
+          const s3Key = `${key}-${name}`;
+          try {
+            await s3.send(
+              new DeleteObjectCommand({
+                Bucket: s3Bucket,
+                Key: s3Key,
+              })
+            );
+            return { s3Key, id: key, success: true };
+          } catch (err) {
+            return {
+              key: s3Key,
+              success: false,
+              error: (err as Error).message,
+            };
+          }
+        })
+      );
+
+      const dbKeys: string[] = s3Deletion
+        .filter(({ success }) => success)
+        .map(({ id }) => id as string);
+
+      if (dbKeys.length > 0) {
+        await db.delete(item).where(inArray(item.id, dbKeys));
+      }
+
+      return { deleted: dbKeys };
+    },
+    {
+      body: t.Object({
+        img: t.Array(t.Object({ key: t.String(), name: t.String() })),
+      }),
+      auth: { allowPublic: false },
+    }
+  )
+  .post(
+    "/soft-delete-image",
+    async ({ body, set, query, user }) => {
+      const { keys } = body;
+      if (!keys || keys.length == 0) {
+        set.status = 400;
+        return { error: "keys must not be a empty array" };
+      }
+      const db = createDb();
+      const ctx = await loadAccessContext(db, user?.id ?? null, query.spaceId);
+      if (!ctx.isOwner) {
+        return {
+          status: 403,
+          error: "You do not have permission to delete images in this space.",
+        };
+      }
+      const softDeleted = await db
+        .update(item)
+        .set({ trashedDeleteDT: sql`NOW()` })
+        .where(inArray(item.id, keys))
+        .returning();
+
+      return { success: true, data: { deleteImage: softDeleted } };
+    },
+    {
+      body: t.Object({ keys: t.Array(t.String()) }),
+      auth: { allowPublic: false },
     }
   );
