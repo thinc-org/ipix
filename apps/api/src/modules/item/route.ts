@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { betterAuthMiddleware } from "../auth/route";
 import { createDb } from "../../drizzle/client";
-import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or, sql, inArray, lte } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
 import {
   getColumnLength,
@@ -45,7 +45,52 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           "item" in r ? (r.item as typeof storageSchema.item.$inferSelect) : (r as typeof storageSchema.item.$inferSelect)
         );
 
-        const item = items[0]
+        let item = items[0]
+
+        // If it's a folder, compute its direct child count using the same visibility rules
+        if (item && item.itemType === "folder") {
+          const childCountRow = await (async () => {
+            if (ctx.isOwner) {
+              const res = await db
+                .select({
+                  count: sql<number>`cast(count(*) as int)`,
+                })
+                .from(storageSchema.item)
+                .where(
+                  and(
+                    eq(storageSchema.item.spaceId, ctx.spaceId),
+                    eq(storageSchema.item.parentId, item.id),
+                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                  )
+                );
+              return res[0];
+            } else {
+              const res = await db
+                .select({
+                  count: sql<number>`cast(count(*) as int)`,
+                })
+                .from(storageSchema.item)
+                .innerJoin(
+                  storageSchema.itemEffectiveAccess,
+                  and(
+                    eq(storageSchema.itemEffectiveAccess.id, storageSchema.item.id),
+                    eq(storageSchema.itemEffectiveAccess.spaceId, storageSchema.item.spaceId),
+                    lte(storageSchema.itemEffectiveAccess.effectiveRank, 1000)
+                  )
+                )
+                .where(
+                  and(
+                    eq(storageSchema.item.spaceId, ctx.spaceId),
+                    eq(storageSchema.item.parentId, item.id),
+                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                  )
+                );
+              return res[0];
+            }
+          })();
+
+          item = { ...(item as any), childCount: childCountRow ? Number(childCountRow.count) : 0 };
+        }
 
         return { success: true, data: { item } };
       } catch (e) {
@@ -210,7 +255,72 @@ export const itemRouter = new Elysia({ prefix: "/item" })
           "item" in r ? (r.item as typeof storageSchema.item.$inferSelect) : (r as typeof storageSchema.item.$inferSelect)
         );
 
-        return { success: true, data: { items } };
+        // If any of the fetched items are folders, compute their direct child counts
+        const folderIds = items.filter((it) => it.itemType === "folder").map((it) => it.id);
+
+        let itemsOut: Array<typeof storageSchema.item.$inferSelect & { childCount?: number }>; // response payload
+
+        if (folderIds.length === 0) {
+          itemsOut = items;
+        } else {
+          // Build a map of folderId -> direct children count with the same visibility rules and trash filter
+          const childCountRows = await (async () => {
+            if (ctx.isOwner) {
+              return await db
+                .select({
+                  parentId: storageSchema.item.parentId,
+                  count: sql<number>`cast(count(*) as int)`,
+                })
+                .from(storageSchema.item)
+                .where(
+                  and(
+                    eq(storageSchema.item.spaceId, ctx.spaceId),
+                    inArray(storageSchema.item.parentId, folderIds),
+                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                  )
+                )
+                .groupBy(storageSchema.item.parentId);
+            } else {
+              return await db
+                .select({
+                  parentId: storageSchema.item.parentId,
+                  count: sql<number>`cast(count(*) as int)`,
+                })
+                .from(storageSchema.item)
+                .innerJoin(
+                  storageSchema.itemEffectiveAccess,
+                  and(
+                    eq(storageSchema.itemEffectiveAccess.id, storageSchema.item.id),
+                    eq(storageSchema.itemEffectiveAccess.spaceId, storageSchema.item.spaceId),
+                    lte(storageSchema.itemEffectiveAccess.effectiveRank, 1000)
+                  )
+                )
+                .where(
+                  and(
+                    eq(storageSchema.item.spaceId, ctx.spaceId),
+                    inArray(storageSchema.item.parentId, folderIds),
+                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                  )
+                )
+                .groupBy(storageSchema.item.parentId);
+            }
+          })();
+
+          const countsMap = new Map<string, number>();
+          for (const row of childCountRows as Array<{ parentId: string | null; count: number }>) {
+            if (row.parentId) countsMap.set(row.parentId, Number(row.count));
+          }
+
+          itemsOut = items.map((it) =>
+            it.itemType === "folder"
+              ? ({ ...it, childCount: countsMap.get(it.id) ?? 0 } as typeof it & {
+                  childCount: number;
+                })
+              : it
+          );
+        }
+
+        return { success: true, data: { items: itemsOut } };
       } catch (e) {
         set.status = 500;
         return { success: false, data: { error: e } };

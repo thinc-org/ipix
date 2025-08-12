@@ -59,7 +59,7 @@ export function ImageGallery({
                       spaceId: item.spaceId,
                       name: item.name,
                       parent: item.parentId,
-                      imageCount: 0,
+                      imageCount: item.childCount,
                     }}
                   />
                 );
