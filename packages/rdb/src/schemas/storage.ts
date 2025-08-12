@@ -36,7 +36,7 @@ const citext = customType<{ data: string }>({
 });
 
 /* citext length constraint */
-const citextConfig = {
+export const citextConfig = {
   minLength: 1,
   maxLength: 255,
 };
@@ -202,9 +202,10 @@ export const fileBlobLocation = pgTable(
       .on(t.provider, t.region, t.bucket, t.objectKey, t.versionId)
       .where(sql`${t.versionId} IS NOT NULL AND ${t.region} IS NOT NULL`),
 
-
     // Fast preview lookups per item
-    index("idx_blob_preview_item").on(t.itemId).where(sql`${t.kind} = 'preview'`),
+    index("idx_blob_preview_item")
+      .on(t.itemId)
+      .where(sql`${t.kind} = 'preview'`),
 
     // Logical uniqueness for previews
     uniqueIndex("uq_preview_identity")
@@ -293,7 +294,9 @@ export const fileAsset = pgTable(
     hasIcc: boolean("has_icc"),
 
     gpsGeom: geometryPoint4326("gps_geom"),
-    gpsGeog: geographyPoint4326("gps_geog").generatedAlwaysAs(() => sql`(gps_geom)::geography`),
+    gpsGeog: geographyPoint4326("gps_geog").generatedAlwaysAs(
+      () => sql`(gps_geom)::geography`
+    ),
     gpsAltM: customType<{ data: string }>({ dataType: () => "numeric(8,2)" })(
       "gps_alt_m"
     ),
@@ -370,7 +373,10 @@ export const fileAsset = pgTable(
       "chk_frame_rate_positive",
       sql`${t.frameRate} IS NULL OR (${t.frameRate}::numeric > 0)`
     ),
-    check('chk_exif_is_object', sql`${t.exif} IS NULL OR jsonb_typeof(${t.exif}) = 'object'`)
+    check(
+      "chk_exif_is_object",
+      sql`${t.exif} IS NULL OR jsonb_typeof(${t.exif}) = 'object'`
+    ),
   ]
 );
 
@@ -672,7 +678,9 @@ export const itemEffectiveAccessRecalcQueue = pgTable(
 export const previewRepathQueue = pgTable(
   "preview_repath_queue",
   {
-    id: uuid("id").primaryKey().default(sql`uuidv7_sub_ms()`),
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`uuidv7_sub_ms()`),
 
     fblId: uuid("fbl_id")
       .notNull()
@@ -702,7 +710,9 @@ export const previewRepathQueue = pgTable(
     algoV: smallint("algo_v").notNull(),
     ext: text("ext"),
 
-    enqueuedAt: timestamp("enqueued_at", { withTimezone: true }).defaultNow().notNull(),
+    enqueuedAt: timestamp("enqueued_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     attempts: integer("attempts").notNull().default(0),
     processedAt: timestamp("processed_at", { withTimezone: true }),
     error: text("error"),
