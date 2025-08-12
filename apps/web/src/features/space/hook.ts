@@ -22,7 +22,7 @@ export function useIsAssociatedWithSpace(params?: {
   return useQuery({
     queryKey: spaceKeys.associated({ ...params, shape: "isAssociated" } as any),
     queryFn: () => spaceApi.getAssociatedSpace(params),
-    select: (data) => Boolean(data), // adapt to your API's shape
+  select: (res) => Boolean(res?.data?.mySpace?.length),
     staleTime: 10 * 60_000,
   });
 }

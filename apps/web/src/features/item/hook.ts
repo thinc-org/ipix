@@ -99,12 +99,12 @@ export function useItemsByFolder(params: ItemsByFolderParams) {
 export function createFolderMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (params: { spaceId: string; name: string; parentId: string | null }) =>
+    mutationFn: (params: { spaceId: string; name: string; parentId: string }) =>
       // Ensure API receives null (not undefined) for optional parentId
       itemApi.createFolder({
         spaceId: params.spaceId,
         name: params.name,
-        parentId: params.parentId ?? null,
+        parentId: params.parentId,
       }),
   onMutate: async () => {
       // Broadly pause any in-flight items queries; we don't know folder sort/filter context here
