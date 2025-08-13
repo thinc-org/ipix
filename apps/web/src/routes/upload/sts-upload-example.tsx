@@ -1,19 +1,29 @@
 import React, { useRef, useEffect } from "react";
 import Uppy, { type UppyFile, type Meta, type Body } from "@uppy/core";
 import Dashboard from "@uppy/dashboard";
-import AwsS3, { type AwsS3Part, type AwsS3UploadParameters } from "@uppy/aws-s3";
+import AwsS3, { type AwsS3Part } from "@uppy/aws-s3";
 import { DashboardModal } from "@uppy/react";
-import app from '@/lib/fetch'
+import app from "@/lib/fetch";
 
 // Import Uppy styles
 import "@uppy/core/dist/style.min.css";
 import "@uppy/dashboard/dist/style.min.css";
 
-export function STSUploadExample() {
+type UploadCtx = {
+  spaceId: string;
+  parentId: string;
+  itemId?: string;
+  sessionKey?: string;
+};
+
+export function STSUploadExample(
+  props: { spaceId?: string; parentId?: string } = {}
+) {
+  const { spaceId, parentId } = props;
   const uppyRef = useRef<Uppy<any> | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isUppyReady, setIsUppyReady] = React.useState(false);
-  const [uploadedFiles, setUploadedFiles] = React.useState<
+  const [, setUploadedFiles] = React.useState<
     Array<{
       id: string;
       name: string;
@@ -29,11 +39,12 @@ export function STSUploadExample() {
       return; // Already initialized
     }
 
-    const uppy = new Uppy({
+  const uppy = new Uppy({
       restrictions: {
-        maxFileSize: 500 * 1024 * 1024, // 500MB for large file testing
-        maxNumberOfFiles: 5,
-        allowedFileTypes: ["image/*", "video/*", ".pdf", ".doc", ".docx"],
+    maxFileSize: 500 * 1024 * 1024, // 500MB for large file testing
+    maxNumberOfFiles: 5,
+    // Server currently only allows images
+    allowedFileTypes: ["image/*"],
       },
       autoProceed: false,
     });
@@ -55,173 +66,190 @@ export function STSUploadExample() {
     }
 
     try {
+      // small helper to compute SHA-256 for each part as base64
+      const sha256Base64OfBlob = async (blob: Blob): Promise<string> => {
+        const ab = await blob.arrayBuffer();
+        const digest = await crypto.subtle.digest("SHA-256", ab);
+        const bytes = new Uint8Array(digest);
+        let bin = "";
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin);
+      };
+
       uppy.use(AwsS3, {
-        shouldUseMultipart: (file: any) => (file.size || 0) > 50 * 1024 * 1024, // 50MB threshold
-        limit: 20, // Higher concurrency for batch uploads
+        // Always multipart to comply with API
+        shouldUseMultipart: () => true,
+        limit: 20,
 
         getChunkSize: (file: any) => {
-          const TEN_MIB = 10 * 1024 * 1024; // Actual minimum is 5 MiB but 10 MiB is used here to reduce overhead, considering Thailand's internet speed.
-          const MAX_CHUNKS = 10000; // per MinIO S3 / AWS S3 Specs
-
+          const FIVE_MIB = 5 * 1024 * 1024; // S3 minimum
+          const MAX_CHUNKS = 10000; // AWS S3 spec
           const minRequiredChunkSize = Math.ceil(file.size / MAX_CHUNKS);
-
-          const chunkSize = Math.max(TEN_MIB, minRequiredChunkSize);
-
-          return chunkSize;
+          return Math.max(FIVE_MIB, minRequiredChunkSize);
         },
 
-        // Batch-optimized upload parameters
-        async getUploadParameters(file: UppyFile<Meta, Body>) {
-          const {data, error} = await app.s3["batch-sign"].post({
-            filename: file.name!,
-            type: file.type ?? "image/jpeg",
-            size: file.size!,
-            context: "",
-            timestamp: new Date().toISOString().slice(0, 10)
-          },{fetch: {
-            credentials: "include"
-          }})
-
-          if (error || !data) {
-            throw new Error(
-              `Failed to get upload parameters: ${error.value}`
-            );
-          }
-
-          return {
-            method: data.method ?? "PUT",
-            url: data.url!,
-            headers: {
-              "Content-Type": file.type ?? "image/jpeg",
-            },
-          } as AwsS3UploadParameters;
+        // Satisfy type union: disable non-multipart path explicitly
+        async getUploadParameters() {
+          throw new Error("Non-multipart uploads are disabled.");
         },
 
-        // Batch multipart upload methods (for large files)
+        // Create placeholder item and initiate a multipart session
         async createMultipartUpload(file: UppyFile<Meta, Body>) {
-          const { data, error } = await app.s3["batch-multipart"].post(
-            {
-              filename: file.name!,
-              type: file.type ?? "image/jpeg",
-              size: file.size!,
-              context: "faculty-photos",
-              metadata: {
-                originalName: file.name,
-                uploadedBy: "faculty-photographer",
-                batchId: Date.now().toString(),
-                ...file.meta,
-              },
-            },
-            {
-              fetch: {
-                credentials: "include",
-                headers: {
-                  "Content-Type": "application/json",
+          if (!spaceId || !parentId) {
+            throw new Error("Upload target not configured (spaceId/parentId).");
+          }
+          // 1) Create file placeholder
+          const { data: created, error: createErr } = await app.v1
+            .spaces({ spaceId })
+            .items.files.post({
+              parentId,
+              name: file.name || "uploaded-file",
+              contentType: (file.type || "application/octet-stream").toLowerCase(),
+            } as any);
+
+          if (createErr || !created?.item?.id) {
+            throw new Error(`Failed to create file item: ${createErr?.value ?? "unknown"}`);
+          }
+
+          const itemId = created.item.id as string;
+
+          // 2) Initiate multipart session
+          const { data: init, error: initErr } = await app.v1
+            .spaces({ spaceId })
+            .items({ itemId })
+            .uploads.multipart.initiate.post({
+              expectedSize: String(file.size ?? 0),
+              contentType: (file.type || "application/octet-stream").toLowerCase(),
+            } as any, {} as any);
+
+          if (initErr || !init?.session?.key || !init?.session?.uploadId || !init?.storage?.stagingKey) {
+            throw new Error(`Failed to initiate multipart: ${initErr?.value ?? "unknown"}`);
+          }
+
+          // Stash context for later calls
+          (file.meta as any).uploadCtx = {
+            spaceId,
+            parentId,
+            itemId,
+            sessionKey: init.session.key,
+          } as UploadCtx;
+
+          return {
+            uploadId: init.session.uploadId,
+            key: init.storage.stagingKey,
+          };
+        },
+
+        async listParts(file: UppyFile<Meta, Body>, _opts: any) {
+          const ctx = (file.meta as any).uploadCtx as UploadCtx | undefined;
+          if (!ctx?.itemId || !ctx?.sessionKey) return [];
+
+          const { data, error } = await app.v1
+            .spaces({ spaceId: ctx.spaceId })
+            .items({ itemId: ctx.itemId })
+            .uploads({ sessionKey: ctx.sessionKey })
+            .get();
+
+          if (error) {
+            throw new Error(`Failed to list parts: ${error.value ?? "unknown"}`);
+          }
+
+          const parts = (data?.data?.parts ?? []) as AwsS3Part[];
+          return parts;
+        },
+
+        async signPart(file: UppyFile<Meta, Body>, opts: any) {
+          const ctx = (file.meta as any).uploadCtx as UploadCtx | undefined;
+          if (!ctx?.itemId || !ctx?.sessionKey) throw new Error("Missing upload session context");
+
+          const partNumber: number = opts.partNumber;
+          const bodyBlob: Blob | undefined = (opts as any).body;
+          if (!bodyBlob) throw new Error("Missing part body to compute checksum");
+
+          // Compute checksum for S3 to validate
+          const checksumB64 = await sha256Base64OfBlob(bodyBlob);
+
+          // Persist checksum for use on /complete
+          const metaAny = file.meta as any;
+          if (!metaAny.partChecksums) metaAny.partChecksums = {} as Record<number, string>;
+          metaAny.partChecksums[partNumber] = checksumB64;
+
+          // Infer if last part (to allow size < 5 MiB)
+          const FIVE_MIB = 5 * 1024 * 1024;
+          const MAX_CHUNKS = 10000;
+          const minRequiredChunkSize = Math.ceil((file.size || 0) / MAX_CHUNKS);
+          const chunkSize = Math.max(FIVE_MIB, minRequiredChunkSize);
+          const isLast = partNumber * chunkSize >= (file.size || 0);
+
+          const { data, error } = await app.v1
+            .spaces({ spaceId: ctx.spaceId })
+            .items({ itemId: ctx.itemId })
+            .uploads({ sessionKey: ctx.sessionKey })
+            .parts.post({
+              parts: [
+                {
+                  partNumber,
+                  size: String(bodyBlob.size),
+                  checksumSHA256Base64: checksumB64,
+                  isLast,
                 },
-              },
-            }
-          );
+              ],
+              overrideContentType: (file.type || "application/octet-stream").toLowerCase(),
+            } as any, {} as any);
 
           if (error) {
-            throw new Error(
-              `Failed to create multipart upload: ${error.value}`
-            );
+            throw new Error(`Failed to sign part: ${error.value ?? "unknown"}`);
           }
 
-          return {
-            uploadId: data.uploadId!,
-            key: data.key!,
-          };
+          const p = (data as any)?.parts?.[0];
+          if (!p?.url) throw new Error("No presigned URL returned for part");
+          return { url: p.url as string, headers: (p.headers ?? {}) as Record<string, string> };
         },
 
-        async listParts(_file: UppyFile<Meta, Body>, opts: any) {
-          const { uploadId, key } = opts;
+        async completeMultipartUpload(file: UppyFile<Meta, Body>, opts: any) {
+          const ctx = (file.meta as any).uploadCtx as UploadCtx | undefined;
+          if (!ctx?.itemId || !ctx?.sessionKey) throw new Error("Missing upload session context");
 
-          const { data, error } = await app.s3["batch-multipart"]({
-            uploadId: uploadId,
-          }).get({
-            query: { key: key },
-            fetch: {
-              credentials: "include",
-            },
-          });
+          const partChecksums: Record<number, string> = (file.meta as any).partChecksums || {};
+          const normalizeETag = (etag: string | undefined) =>
+            (etag ?? "").replace(/^\"+|\"+$/g, "").replace(/^"+|"+$/g, "");
+
+          const partsInput = ([...(opts.parts ?? [])]
+            .sort((a: any, b: any) => Number(a.PartNumber) - Number(b.PartNumber))
+          ).map((p: any) => ({
+            partNumber: Number(p.PartNumber),
+            eTag: normalizeETag(p.ETag),
+            checksumSHA256Base64: partChecksums[Number(p.PartNumber)],
+          }));
+
+          const { data, error } = await app.v1
+            .spaces({ spaceId: ctx.spaceId })
+            .items({ itemId: ctx.itemId })
+            .uploads({ sessionKey: ctx.sessionKey })
+            .complete.post({
+              parts: partsInput,
+              clientSha256Hex: null,
+            } as any, {} as any);
 
           if (error) {
-            throw new Error(`Failed to list parts: ${error.value}`);
+            throw new Error(`Failed to complete multipart upload: ${error.value ?? "unknown"}`);
           }
 
-          return data as AwsS3Part[];
+          const blob = (data as any)?.blobLocation;
+          const location = blob?.bucket && blob?.objectKey ? `s3://${blob.bucket}/${blob.objectKey}` : undefined;
+          return { location } as any;
         },
 
-        async signPart(_file: UppyFile<Meta, Body>, opts: any) {
-          const { uploadId, key, partNumber } = opts;
+        async abortMultipartUpload(file: UppyFile<Meta, Body>) {
+          const ctx = (file.meta as any).uploadCtx as UploadCtx | undefined;
+          if (!ctx?.itemId || !ctx?.sessionKey) return;
 
-          const { data, error } = await app.s3["batch-multipart"]({
-            uploadId: uploadId,
-          })({ partNumber: partNumber }).get({
-            query: { key: key },
-            fetch: {
-              credentials: "include",
-            },
-          });
-
-          if (error) {
-            throw new Error(`Failed to sign part: ${error.value}`);
-          }
-
-          return {
-            url: data.url!,
-          };
-        },
-
-        async completeMultipartUpload(_file: UppyFile<Meta, Body>, opts: any) {
-          const { uploadId, key, parts } = opts;
-
-          const { data, error } = await app.s3["batch-multipart"]({
-            uploadId: uploadId,
-          }).complete.post(
-            {
-              parts: parts,
-            },
-            {
-              fetch: {
-                credentials: "include",
-              },
-              query: {
-                key: key,
-              },
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (error) {
-            throw new Error(
-              `Failed to complete multipart upload: ${error.value}`
-            );
-          }
-
-          return {
-            location: data.location,
-          };
-        },
-
-        async abortMultipartUpload(_file: UppyFile<Meta, Body>, opts: any) {
-          const { uploadId, key } = opts;
-
-          await app.s3["batch-multipart"]({ uploadId: uploadId }).delete(
-            {},
-            {
-              fetch: {
-                credentials: "include",
-              },
-              query: {
-                key: key
-              }
-            }
-          );
-          // Note: We don't throw on failure here as abort should be best-effort
+/*           await app.v1
+            .spaces({ spaceId: ctx.spaceId })
+            .items({ itemId: ctx.itemId })
+            .uploads({ sessionKey: ctx.sessionKey })
+            .abort.post({} as any, {} as any); */
+          // Best effort; ignore errors
         },
       });
     } catch (error) {

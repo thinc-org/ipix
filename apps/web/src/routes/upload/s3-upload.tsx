@@ -25,7 +25,7 @@ export function S3UploadPage() {
 
         {/* STS Token Info and Alternative Upload */}
         <div className="space-y-4">
-          <STSUploadExample />
+          <STSUploadExample spaceId='3ff56cda-71c3-4546-81f1-7bccd9e11fd8' parentId='0b60786c-a2a6-49c5-b6d5-f927f33543c6' />
         </div>
 
         {/* Features Info */}
