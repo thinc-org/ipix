@@ -1,4 +1,3 @@
-// src/routes/s3.ts -----------------------------------------------------------
 import { Elysia, t } from "elysia";
 import {
   PutObjectCommand,
@@ -6,33 +5,80 @@ import {
   UploadPartCommand,
   ListPartsCommand,
   CompleteMultipartUploadCommand,
-  AbortMultipartUploadCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
+  CopyObjectCommand,
+  Part,
+  AbortMultipartUploadCommand,
+  UploadPartCopyCommand, // added
 } from "@aws-sdk/client-s3";
 import { GetFederationTokenCommand } from "@aws-sdk/client-sts";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import crypto from "node:crypto";
-import {
-  s3,
-  sts,
-  accessControlAllowOrigin,
-  expiresIn,
-  s3Region,
-  s3Bucket,
-} from "@repo/s3";
-import { auth, betterAuthMiddleware } from "../auth/route.js";
+import { s3, sts, expiresIn, s3Region, s3Bucket } from "@repo/s3";
+import { betterAuthMiddleware } from "../auth/route.js";
 import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
 import { createDb } from "../../drizzle/client.js";
-import { storageSchema } from "../../../../../packages/rdb/src/schema.js";
-import { item } from "../../../../../packages/rdb/src/schemas/storage.js";
-import { eq, inArray, sql } from "drizzle-orm";
+import { storageSchema } from "@repo/rdb/schema";
+import {
+  fileBlobLocationInsertSchema,
+  item,
+  uploadSessionInsertSchema,
+} from "../../../../../packages/rdb/src/schemas/storage.js";
+import { eq, inArray, sql, and } from "drizzle-orm";
 import { loadAccessContext } from "../../utils/queryHelper.js";
+import { uploadSession } from "../../../../../packages/rdb/src/schemas/storage.js";
+
+const DEFAULT_CONTENT_TYPE = "application/octet-stream";
+const S3_MIN_PART = 5 * 1024 * 1024; // 5 MiB
+const S3_MAX_PART = 5 * 1024 * 1024 * 1024; // 5 GiB
+const S3_MAX_PARTS = 10_000n;
+const S3_MAX_OBJECT_SIZE = 5n * 1024n * 1024n * 1024n * 1024n; // 5 TB
+const S3_MAX_PARTS_NUMBER = Number(S3_MAX_PARTS); // 10_000 as number
+const PART_PRESIGN_EXPIRES_DEFAULT = 900; // seconds
+const PART_PRESIGN_EXPIRES_MIN = 60;
+const PART_PRESIGN_EXPIRES_MAX = 3600;
+const PROVIDER_AWS_S3 = "aws_s3";
+const BATCH_DOWNLOAD_CONCURRENCY = 6;
+const ERR_FORBIDDEN_WRITE = "Forbidden: no write permission in this space";
+
+const db = createDb();
+// Optional helpers for schema handles
+const fileAsset = (storageSchema as any).fileAsset;
+const fileBlobLocation = (storageSchema as any).fileBlobLocation;
+
+// Normalize bucket casing once and use everywhere
+const BUCKET = s3Bucket.toLowerCase();
 
 const generateKey = () => Bun.randomUUIDv7();
-const isValidPartNumber = (n: number) =>
-  Number.isInteger(n) && n >= 1 && n <= 10_000;
+
+function recommendPartSize(total: bigint): number {
+  const MIN = BigInt(S3_MIN_PART);
+  const MAX = BigInt(S3_MAX_PART);
+  const parts = (total + S3_MAX_PARTS - 1n) / S3_MAX_PARTS;
+  const miB = 1024n * 1024n;
+  const rounded = ((parts + miB - 1n) / miB) * miB;
+  const clamped = rounded < MIN ? MIN : (rounded > MAX ? MAX : rounded);
+  return Number(clamped);
+}
+
+// Helper: extract itemId from an object key that is either a UUID or `${uuid}-${name}`
+const extractItemIdFromKey = (key: string): string | null => {
+  const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+  if (uuidPattern.test(key)) return key;
+  const m = key.match(
+    /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})-/
+  );
+  return m ? m[1] : null;
+};
+
+const toStagingKey = (spaceId: string, sessionKey: string) => {
+  return `staging/uploads/${spaceId}/${sessionKey}`;
+};
+
+const isValidBase64 = (s: string) =>
+  /^[A-Za-z0-9+/]+={0,2}$/.test(s) && Buffer.from(s, "base64").length === 32;
 
 // Sanitize header values for AWS S3 metadata
 // AWS S3 metadata values must be ASCII and certain characters are forbidden
@@ -51,670 +97,3 @@ const isAllowedMime = (type?: string) =>
 // currently only allow image
 const hasAllowedExtension = (filename?: string) =>
   !!filename && /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(filename);
-
-export const s3Router = new Elysia({ prefix: "/s3" })
-  .use(betterAuthMiddleware)
-  // Not used yet, because MinIO does not support GetFederationTokenCommand
-  .get("/sts", async ({ set }) => {
-    const policy = {
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: ["s3:PutObject"],
-          Resource: [`arn:aws:s3:::${s3Bucket}/*`],
-        },
-      ],
-    };
-    const r = await sts.send(
-      new GetFederationTokenCommand({
-        Name: "placeholder",
-        DurationSeconds: expiresIn,
-        Policy: JSON.stringify(policy),
-      })
-    );
-    set.headers["Cache-Control"] = `public,max-age=${expiresIn}`;
-    return { credentials: r.Credentials, bucket: s3Bucket, region: s3Region };
-  })
-
-  /*
-SIMPLE PUT OBJECT (non-multipart)
-*/
-  .get(
-    "/params",
-    async ({ query, set }) => {
-      const { filename, type } = query as { filename?: string; type?: string };
-      if (!filename || !type) {
-        set.status = 400;
-        return { error: "filename & type required" };
-      }
-
-      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
-        set.status = 415;
-        return { error: "You are not allowed to upload this type of file" };
-      }
-
-      const key = generateKey();
-      const url = await getSignedUrl(
-        s3,
-        new PutObjectCommand({
-          Bucket: s3Bucket,
-          Key: key,
-          ContentType: type,
-        }),
-        { expiresIn }
-      );
-
-      return { url, method: "PUT" };
-    },
-    {
-      query: t.Object({ filename: t.String(), type: t.String() }),
-      auth: { allowPublic: false },
-    }
-  )
-  .post(
-    "/sign",
-    async ({ body, set }) => {
-      const { filename, type } = body as { filename?: string; type?: string };
-      if (!filename || !type) {
-        set.status = 400;
-        return { error: "filename & type required" };
-      }
-
-      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
-        set.status = 415;
-        return { error: "You are not allowed to upload this type of file" };
-      }
-
-      const key = generateKey();
-      const url = await getSignedUrl(
-        s3,
-        new PutObjectCommand({
-          Bucket: s3Bucket,
-          Key: key,
-          ContentType: type,
-        }),
-        { expiresIn }
-      );
-
-      return { url, method: "PUT" };
-    },
-    {
-      body: t.Object({ filename: t.String(), type: t.String() }),
-      auth: { allowPublic: false },
-    }
-  )
-
-  /*
-BATCH-OPTIMIZED ENDPOINTS FOR BULK UPLOADS (e.g., faculty photos)
-*/
-
-  /* Batch sign - optimized for bulk uploads */
-  .post(
-    "/batch-sign",
-    async ({ body, set, user }) => {
-      const { filename, type, size } = body as {
-        filename?: string;
-        type?: string;
-        size?: number;
-        timestamp?: string;
-      };
-
-      if (!filename || !type) {
-        set.status = 400;
-        return { error: "filename & type required" };
-      }
-
-      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
-        set.status = 415;
-        return { error: "You are not allowed to upload this type of file" };
-      }
-
-      const key = generateKey();
-
-      const url = await getSignedUrl(
-        s3,
-        new PutObjectCommand({
-          Bucket: s3Bucket,
-          Key: key,
-          ContentType: type,
-          Metadata: {
-            "uploader-user-id": user!.id,
-            "file-size": sanitizeHeaderValue(size?.toString() || "0"),
-          },
-        }),
-        { expiresIn }
-      );
-
-      return { url, method: "PUT", key };
-    },
-    {
-      body: t.Object({
-        filename: t.String(),
-        type: t.String(),
-        size: t.Optional(t.Number()),
-      }),
-
-      auth: { allowPublic: false },
-    }
-  )
-
-  /* Batch multipart - optimized for large files in bulk uploads */
-  .post(
-    "/batch-multipart",
-    async ({ body, set }) => {
-      const { filename, type, size, context, metadata } = body as {
-        filename?: string;
-        type?: string;
-        size?: number;
-        context?: string;
-        metadata?: Record<string, string>;
-      };
-
-      if (!filename) {
-        set.status = 400;
-        return { error: "s3: content filename must be a string" };
-      }
-      if (!type) {
-        set.status = 400;
-        return { error: "s3: content type must be a string" };
-      }
-
-      if (!isAllowedMime(type) || !hasAllowedExtension(filename)) {
-        set.status = 415;
-        return { error: "You are not allowed to upload this type of file" };
-      }
-
-      // Generate key with context for better organization
-      const contextPrefix =
-        context === "faculty-photos" ? "faculty" : "uploads";
-      const datePrefix = new Date().toISOString().slice(0, 10);
-      const key = `${contextPrefix}/${datePrefix}/${crypto.randomUUID()}-${filename}`;
-
-      //FOR MVP 1.0
-      // const key = `${crypto.randomUUID()}-${filename}`;
-
-      // Clean and merge provided metadata with batch-specific metadata
-      const cleanedMetadata: Record<string, string> = {};
-      if (metadata) {
-        // Filter out null/undefined values and convert all to strings with sanitization
-        Object.entries(metadata).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            cleanedMetadata[key] = sanitizeHeaderValue(String(value));
-          }
-        });
-      }
-
-      const enhancedMetadata = {
-        "upload-context": sanitizeHeaderValue(context || "general"),
-        "batch-timestamp": sanitizeHeaderValue(new Date().toISOString()),
-        "original-filename": sanitizeHeaderValue(filename),
-        "file-size": sanitizeHeaderValue(size?.toString() || "0"),
-        "upload-type": sanitizeHeaderValue("batch-multipart"),
-        ...cleanedMetadata,
-      };
-
-      const r = await s3.send(
-        new CreateMultipartUploadCommand({
-          Bucket: s3Bucket,
-          Key: key,
-          ContentType: type,
-          Metadata: enhancedMetadata,
-        })
-      );
-
-      return { key: r.Key, uploadId: r.UploadId };
-    },
-    {
-      body: t.Object({
-        filename: t.String(),
-        type: t.String(),
-        size: t.Optional(t.Number()),
-        context: t.Optional(t.String()),
-        metadata: t.Optional(
-          t.Record(t.String(), t.Union([t.String(), t.Null()]))
-        ),
-      }),
-
-      auth: { allowPublic: false },
-    }
-  )
-
-  /* Batch multipart - presign each part */
-  .get(
-    "/batch-multipart/:uploadId/:partNumber",
-    async ({ params, query, set }) => {
-      const part = Number(params.partNumber);
-      if (!isValidPartNumber(part)) {
-        set.status = 400;
-        return { error: "partNumber 1-10000" };
-      }
-      const key = query.key as string | undefined;
-      if (!key) {
-        set.status = 400;
-        return { error: "?key=objectKey is required" };
-      }
-
-      const url = await getSignedUrl(
-        s3,
-        new UploadPartCommand({
-          Bucket: s3Bucket,
-          Key: key,
-          UploadId: params.uploadId,
-          PartNumber: part,
-          Body: "", // Body is ignored for presign
-        }),
-        { expiresIn }
-      );
-      return { url, expires: expiresIn };
-    },
-    {
-      params: t.Object({ uploadId: t.String(), partNumber: t.String() }),
-      query: t.Object({ key: t.String() }),
-
-      auth: { allowPublic: false },
-    }
-  )
-
-  /* Batch multipart - list already uploaded parts */
-  .get(
-    "/batch-multipart/:uploadId",
-    async ({ params, query, set }) => {
-      const key = query.key as string | undefined;
-      if (!key) {
-        set.status = 400;
-        return { error: "?key required" };
-      }
-      const parts: any[] = [];
-      const listPage = async (marker?: string): Promise<void> => {
-        const r = await s3.send(
-          new ListPartsCommand({
-            Bucket: s3Bucket,
-            Key: key,
-            UploadId: params.uploadId,
-            PartNumberMarker: marker,
-          })
-        );
-        parts.push(...r.Parts!);
-        if (r.IsTruncated) await listPage(r.NextPartNumberMarker);
-      };
-      await listPage();
-      return parts;
-    },
-    {
-      params: t.Object({ uploadId: t.String() }),
-      query: t.Object({ key: t.String() }),
-      auth: { allowPublic: false },
-    }
-  )
-
-  /* Batch multipart - complete upload */
-  .post(
-    "/batch-multipart/:uploadId/complete",
-    async ({ params, query, body, set }) => {
-      const key = query.key as string | undefined;
-      const parts = body.parts as
-        | { PartNumber: number; ETag: string }[]
-        | undefined;
-      if (!key) {
-        set.status = 400;
-        return { error: "?key required" };
-      }
-      if (
-        !Array.isArray(parts) ||
-        !parts.every((p) => p.PartNumber && p.ETag)
-      ) {
-        set.status = 400;
-        return { error: "parts must be [{PartNumber,ETag}]" };
-      }
-
-      const r = await s3.send(
-        new CompleteMultipartUploadCommand({
-          Bucket: s3Bucket,
-          Key: key,
-          UploadId: params.uploadId,
-          MultipartUpload: { Parts: parts },
-        })
-      );
-      return { location: r.Location };
-    },
-    {
-      params: t.Object({ uploadId: t.String() }),
-      query: t.Object({ key: t.String() }),
-      body: t.Object({
-        parts: t.Array(t.Object({ PartNumber: t.Number(), ETag: t.String() })),
-      }),
-      auth: { allowPublic: false },
-    }
-  )
-
-  /* Batch multipart - abort upload */
-  .delete(
-    "/batch-multipart/:uploadId",
-    async ({ params, query, set }) => {
-      const key = query.key as string | undefined;
-      if (!key) {
-        set.status = 400;
-        return { error: "?key required" };
-      }
-      await s3.send(
-        new AbortMultipartUploadCommand({
-          Bucket: s3Bucket,
-          Key: key,
-          UploadId: params.uploadId,
-        })
-      );
-      return {};
-    },
-    {
-      params: t.Object({ uploadId: t.String() }),
-      query: t.Object({ key: t.String() }),
-
-      auth: { allowPublic: false },
-    }
-  )
-
-  //Get single image
-  .get(
-    "/image/:imageKey",
-    async ({ params, set, query }) => {
-      const { imageKey } = params;
-      const { download } = query;
-
-      const getObjectCommandInput = {
-        Bucket: s3Bucket,
-        Key: imageKey,
-      };
-
-      if (download === "true") {
-        const filename = imageKey.split("/").pop() || "download";
-        Object.assign(getObjectCommandInput, {
-          ResponseContentDisposition: `attachment; filename="${decodeURIComponent(filename)}"`,
-        });
-      } else {
-        Object.assign(getObjectCommandInput, {
-          ResponseContentDisposition: "inline",
-        });
-      }
-
-      const url = await getSignedUrl(
-        s3,
-        new GetObjectCommand(getObjectCommandInput),
-        { expiresIn }
-      );
-      return { url, expires: expiresIn };
-    },
-    {
-      params: t.Object({ imageKey: t.String() }),
-      query: t.Object({ download: t.Optional(t.String()) }),
-      auth: { allowPublic: true },
-    }
-  )
-
-  //Bulk download image
-  .post(
-    "/batch-download",
-    async ({ body, set }) => {
-      const { imageKeys } = body;
-
-      const keysArray = imageKeys.filter((key: string) => key !== "");
-
-      if (keysArray.length === 0) {
-        set.status = 400;
-        return { error: "No valid image keys provided for download." };
-      }
-
-      const zipStream = new PassThrough();
-
-      set.headers["Content-Type"] = "application/zip";
-      set.headers["Content-Disposition"] = 'attachment; filename="files.zip"';
-
-      (async () => {
-        const archive = archiver("zip", { zlib: { level: 9 } });
-
-        archive.pipe(zipStream);
-
-        archive.on("error", (err) => {
-          console.error("Archiver error:", err);
-          zipStream.emit("error", err);
-        });
-
-        archive.on("warning", function (err) {
-          if (err.code === "ENOENT") {
-            console.warn("Archiver warning (ENOENT):", err);
-          } else {
-            console.error("Archiver unhandled warning:", err);
-            zipStream.emit("error", err);
-          }
-        });
-
-        await Promise.allSettled(
-          keysArray.map(async (key) => {
-            try {
-              const presignedUrl = await getSignedUrl(
-                s3,
-                new GetObjectCommand({
-                  Bucket: s3Bucket,
-                  Key: key,
-                }),
-                { expiresIn }
-              );
-
-              const response = await fetch(presignedUrl);
-
-              if (!response.ok) {
-                throw new Error(
-                  `HTTP error status: ${response.status} for key: ${key}`
-                );
-              }
-
-              const webStream = response.body;
-
-              if (webStream) {
-                const nodeStream = Readable.from(webStream);
-                nodeStream.on("error", (err) => {
-                  console.error(`Stream error for ${key}:`, err);
-                });
-                const fileName = key.split("/").pop() || key;
-                archive.append(nodeStream, { name: fileName });
-              } else {
-                console.warn(`Fetch response body is null for key: ${key}`);
-              }
-            } catch (err: any) {
-              console.error(`Error processing file "${key}":`, err);
-            }
-          })
-        );
-
-        await archive.finalize();
-      })();
-
-      return zipStream;
-    },
-    {
-      body: t.Object({
-        imageKeys: t.Array(t.String()),
-      }),
-      auth: { allowPublic: true },
-    }
-  )
-
-  //get bulk image (maybe optimizing for scalability ex pagination in the future??)
-  .post(
-    "/batch-image",
-    async ({ body }) => {
-      const { keys } = body;
-
-      const signedUrls = await Promise.all(
-        keys.map(async (imageKey: string) => {
-          const getObjectCommandInput = {
-            Bucket: s3Bucket,
-            Key: imageKey,
-          };
-
-          try {
-            const url = await getSignedUrl(
-              s3,
-              new GetObjectCommand(getObjectCommandInput),
-              { expiresIn }
-            );
-            return { key: imageKey, url, expires: expiresIn };
-          } catch (err) {
-            return { key: imageKey, error: "Could not generate signed URL" };
-          }
-        })
-      );
-
-      return { signedUrls };
-    },
-    {
-      body: t.Object({ keys: t.Array(t.String()) }),
-      auth: { allowPublic: true },
-    }
-  )
-  .get(
-    "/preview-image-keys",
-    async (context) => {
-      const {
-        request: { headers },
-      } = context;
-      const session = await auth.api.getSession({ headers });
-      const userid = session?.user.id;
-      if (!userid) {
-        context.set.status = 401;
-        return { error: "Cannot get user ID from session" };
-      }
-      const db = createDb();
-      const imageRow = await db
-        .select({ key: item.previewId, name: item.name })
-        .from(item)
-        .where(eq(item.createdBy, userid));
-      if (imageRow.length === 0) {
-        context.set.status = 404;
-        return { error: "cannot get download keys" };
-      }
-      const imageKeys = imageRow.map((row) => `${row.key}-${row.name}`);
-      return { imageKeys };
-    },
-    {
-      auth: { allowPublic: true },
-    }
-  )
-  .post(
-    "/download-image-keys",
-    async ({ body, set }) => {
-      const keys = body.keys;
-      if (!keys || keys.length == 0) {
-        set.status = 400;
-        return { error: "keys must not be a empty array" };
-      }
-      const uuidRegex =
-        /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})-(.*)$/;
-      const imageIds = keys.map((keyString) => {
-        const match = keyString.match(uuidRegex);
-        if (!match) {
-          throw new Error(`Invalid key format: ${keyString}`);
-        }
-        return match[1];
-      });
-      const db = createDb();
-      const imageRow = await db
-        .select({ key: item.id, name: item.name })
-        .from(item)
-        .where(inArray(item.id, imageIds));
-      if (imageRow.length === 0) {
-        set.status = 404;
-        return { error: "cannot get download keys" };
-      }
-      const downloadKeys = imageRow.map((row) => `${row.key}-${row.name}`);
-      return { downloadKeys };
-    },
-    {
-      body: t.Object({ keys: t.Array(t.String()) }),
-      auth: { allowPublic: true },
-    }
-  )
-  .post(
-    "/delete-batch-image",
-    async ({ body, set, user, query }) => {
-      const { img } = body;
-      if (!img || img.length == 0) {
-        set.status = 400;
-        return { error: "img must not be a empty array" };
-      }
-      const db = createDb();
-      const ctx = await loadAccessContext(db, user?.id ?? null, query.spaceId);
-      if (!ctx.isOwner) {
-        return {
-          status: 403,
-          error: "You do not have permission to delete images in this space.",
-        };
-      }
-
-      const s3Deletion = await Promise.all(
-        img.map(async ({ key, name }) => {
-          const s3Key = `${key}-${name}`;
-          try {
-            await s3.send(
-              new DeleteObjectCommand({
-                Bucket: s3Bucket,
-                Key: s3Key,
-              })
-            );
-            return { s3Key, id: key, success: true };
-          } catch (err) {
-            return {
-              key: s3Key,
-              success: false,
-              error: (err as Error).message,
-            };
-          }
-        })
-      );
-
-      const dbKeys: string[] = s3Deletion
-        .filter(({ success }) => success)
-        .map(({ id }) => id as string);
-
-      if (dbKeys.length > 0) {
-        await db.delete(item).where(inArray(item.id, dbKeys));
-      }
-
-      return { deleted: dbKeys };
-    },
-    {
-      body: t.Object({
-        img: t.Array(t.Object({ key: t.String(), name: t.String() })),
-      }),
-      auth: { allowPublic: false },
-    }
-  )
-  .post(
-    "/soft-delete-image",
-    async ({ body, set, query, user }) => {
-      const { keys } = body;
-      if (!keys || keys.length == 0) {
-        set.status = 400;
-        return { error: "keys must not be a empty array" };
-      }
-      const db = createDb();
-      const ctx = await loadAccessContext(db, user?.id ?? null, query.spaceId);
-      if (!ctx.isOwner) {
-        return {
-          status: 403,
-          error: "You do not have permission to delete images in this space.",
-        };
-      }
-      const softDeleted = await db
-        .update(item)
-        .set({ trashedDeleteDT: sql`NOW()` })
-        .where(inArray(item.id, keys))
-        .returning();
-
-      return { success: true, data: { deleteImage: softDeleted } };
-    },
-    {
-      body: t.Object({ keys: t.Array(t.String()) }),
-      auth: { allowPublic: false },
-    }
-  );
