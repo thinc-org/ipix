@@ -5,7 +5,9 @@ import { createDb } from "../../drizzle/client";
 import { eq } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
 import { MatchType, withMatch } from "../../utils/queryHelper";
-import { citextConfig, spaceInsertSchema } from "../../../../../packages/rdb/src/schemas/storage";
+import { citextConfig } from "@repo/rdb/types";
+
+const spaceInsertSchema = storageSchema.spaceInsertSchema
 
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });

@@ -9,7 +9,7 @@ import {
   scopeItemRead,
   scopeItemsRead,
 } from "../../utils/queryHelper";
-import { citextConfig } from "../../../../../packages/rdb/src/schemas/storage";
+import { citextConfig } from "@repo/rdb/types";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
@@ -129,6 +129,102 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
       }),
       params: t.Object({
         spaceId: t.String({ format: "uuid" }),
+      }),
+    }
+  )
+  // Create file placeholder
+  .post(
+    "/spaces/:spaceId/items/files",
+    async ({ params, body, user, set }) => {
+      try {
+        const ctx = await loadAccessContext(db, user!.id, params.spaceId);
+
+        // Authorization: require space-level write (owner)
+        if (!ctx.isOwner) {
+          set.status = 403;
+          return { message: "You are not authorized to create files in this space" };
+        }
+
+        // Validate parent if provided
+        if (body.parentId) {
+          const parentRows = await db
+            .select({
+              id: storageSchema.item.id,
+              itemType: storageSchema.item.itemType,
+              purgeAt: storageSchema.item.purgeAt,
+              spaceId: storageSchema.item.spaceId,
+            })
+            .from(storageSchema.item)
+            .where(
+              and(
+                eq(storageSchema.item.id, body.parentId),
+                eq(storageSchema.item.spaceId, params.spaceId)
+              )
+            );
+
+          const parent = parentRows[0];
+          if (!parent) {
+            set.status = 400;
+            return { message: "Invalid parentId" };
+          }
+          if (parent.itemType !== "folder") {
+            set.status = 400;
+            return { message: "Parent must be a folder" };
+          }
+          if (parent.purgeAt !== null) {
+            set.status = 400;
+            return { message: "Parent folder is in trash" };
+          }
+        }
+
+        // Normalize MIME type to lowercase
+        const normalizedMime = body.contentType.trim().toLowerCase();
+
+        const inserted = await db
+          .insert(storageSchema.item)
+          .values({
+            name: body.name,
+            spaceId: params.spaceId,
+            parentId: body.parentId,
+            createdBy: user!.id,
+            accessType: "owner",
+            itemType: "file",
+            fileState: "placeholder",
+            mimeType: normalizedMime,
+            sizeByte: null,
+            assetId: null,
+          })
+          .returning();
+
+        const created = inserted[0];
+
+        set.status = 201;
+        return {
+          item: {
+            id: created.id,
+            spaceId: created.spaceId,
+            parentId: created.parentId,
+            itemType: created.itemType,
+            fileState: created.fileState,
+            mimeType: created.mimeType,
+            sizeByte: created.sizeByte === null ? null : String(created.sizeByte),
+            createdAt: new Date(created.createdAt as any).toISOString(),
+          },
+        };
+      } catch (e) {
+        set.status = 500;
+        return { message: "Internal Server Error" };
+      }
+    },
+    {
+      auth: { allowPublic: false },
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
+      }),
+      body: t.Object({
+        parentId: t.String({ format: "uuid" }),
+        name: t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength }),
+        contentType: t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength }),
       }),
     }
   )
