@@ -21,7 +21,11 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
     "/spaces/:spaceId/items/:itemId",
     async ({ params, query, user, set }) => {
       try {
-        const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
+        const ctx = await loadAccessContext(
+          db,
+          user?.id ?? null,
+          params.spaceId
+        );
 
         // Authorization check for item visibility within the space
         const haveAccess = await scopeItemRead(ctx, {
@@ -30,14 +34,24 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         });
         if (haveAccess.length === 0) {
           set.status = 403;
-          return { success: false, data: { message: "You are not authorized to view this content" } };
+          return {
+            success: false,
+            data: { message: "You are not authorized to view this content" },
+          };
         }
 
         const rows = await db
           .select()
           .from(storageSchema.item)
-          .where(and(eq(storageSchema.item.spaceId, params.spaceId), eq(storageSchema.item.id, params.itemId)));
-        const item = rows[0] as typeof storageSchema.item.$inferSelect | undefined;
+          .where(
+            and(
+              eq(storageSchema.item.spaceId, params.spaceId),
+              eq(storageSchema.item.id, params.itemId)
+            )
+          );
+        const item = rows[0] as
+          | typeof storageSchema.item.$inferSelect
+          | undefined;
 
         if (!item) {
           set.status = 404;
@@ -54,7 +68,9 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
                   and(
                     eq(storageSchema.item.spaceId, ctx.spaceId),
                     eq(storageSchema.item.parentId, item.id),
-                    query?.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                    query?.includeTrash
+                      ? sql`TRUE`
+                      : isNull(storageSchema.item.purgeAt)
                   )
                 );
               return res[0];
@@ -65,8 +81,14 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
                 .innerJoin(
                   storageSchema.itemEffectiveAccess,
                   and(
-                    eq(storageSchema.itemEffectiveAccess.id, storageSchema.item.id),
-                    eq(storageSchema.itemEffectiveAccess.spaceId, storageSchema.item.spaceId),
+                    eq(
+                      storageSchema.itemEffectiveAccess.id,
+                      storageSchema.item.id
+                    ),
+                    eq(
+                      storageSchema.itemEffectiveAccess.spaceId,
+                      storageSchema.item.spaceId
+                    ),
                     lte(storageSchema.itemEffectiveAccess.effectiveRank, 1000)
                   )
                 )
@@ -74,14 +96,21 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
                   and(
                     eq(storageSchema.item.spaceId, ctx.spaceId),
                     eq(storageSchema.item.parentId, item.id),
-                    query?.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                    query?.includeTrash
+                      ? sql`TRUE`
+                      : isNull(storageSchema.item.purgeAt)
                   )
                 );
               return res[0];
             }
           })();
 
-          const withCount = { ...(item as any), childCount: childCountRow ? Number((childCountRow as any).count) : 0 };
+          const withCount = {
+            ...(item as any),
+            childCount: childCountRow
+              ? Number((childCountRow as any).count)
+              : 0,
+          };
           return { success: true, data: { item: withCount } };
         }
 
@@ -125,7 +154,10 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
       auth: { allowPublic: false },
       body: t.Object({
         parentId: t.Nullable(t.String({ format: "uuid" })),
-        name: t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength}),
+        name: t.String({
+          minLength: citextConfig.minLength,
+          maxLength: citextConfig.maxLength,
+        }),
       }),
       params: t.Object({
         spaceId: t.String({ format: "uuid" }),
@@ -142,7 +174,9 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         // Authorization: require space-level write (owner)
         if (!ctx.isOwner) {
           set.status = 403;
-          return { message: "You are not authorized to create files in this space" };
+          return {
+            message: "You are not authorized to create files in this space",
+          };
         }
 
         // Validate parent if provided
@@ -207,7 +241,8 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
             itemType: created.itemType,
             fileState: created.fileState,
             mimeType: created.mimeType,
-            sizeByte: created.sizeByte === null ? null : String(created.sizeByte),
+            sizeByte:
+              created.sizeByte === null ? null : String(created.sizeByte),
             createdAt: new Date(created.createdAt as any).toISOString(),
           },
         };
@@ -223,8 +258,14 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
       }),
       body: t.Object({
         parentId: t.String({ format: "uuid" }),
-        name: t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength }),
-        contentType: t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength }),
+        name: t.String({
+          minLength: citextConfig.minLength,
+          maxLength: citextConfig.maxLength,
+        }),
+        contentType: t.String({
+          minLength: citextConfig.minLength,
+          maxLength: citextConfig.maxLength,
+        }),
       }),
     }
   )
@@ -248,7 +289,11 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
 
         const orderCol = sortMap[query.sortField as keyof typeof sortMap];
 
-        const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
+        const ctx = await loadAccessContext(
+          db,
+          user?.id ?? null,
+          params.spaceId
+        );
 
         // Ensure caller can access the folder itself (mirror /ancestors auth)
         const canAccessFolder = await scopeItemRead(ctx, {
@@ -257,7 +302,10 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         });
         if (canAccessFolder.length === 0) {
           set.status = 403;
-          return { success: false, data: { message: "You are not authorized to view this content" } };
+          return {
+            success: false,
+            data: { message: "You are not authorized to view this content" },
+          };
         }
 
         let qb = scopeItemsRead(
@@ -267,7 +315,7 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
             parentId: query.folderId ?? null,
             includeTrash: !!query.includeTrash,
             name: query.searchString ?? undefined,
-            match: query.match ?? undefined
+            match: query.match ?? undefined,
           }
         );
 
@@ -277,17 +325,31 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         // (owner: flat item row, non-owner: { item, itemWithEffectiveAccess }).
         // Normalize to a flat item row for a consistent API contract.
         const rows = await qb;
-        const items: typeof storageSchema.item.$inferSelect[] = (rows as any[]).map((r) =>
-          "item" in r ? (r.item as typeof storageSchema.item.$inferSelect) : (r as typeof storageSchema.item.$inferSelect)
+        let items: (typeof storageSchema.item.$inferSelect)[] = (
+          rows as any[]
+        ).map((r) =>
+          "item" in r
+            ? (r.item as typeof storageSchema.item.$inferSelect)
+            : (r as typeof storageSchema.item.$inferSelect)
         );
 
         // If any of the fetched items are folders, compute their direct child counts
-        const folderIds = items.filter((it) => it.itemType === "folder").map((it) => it.id);
+        const folderIds = items
+          .filter((it) => it.itemType === "folder")
+          .map((it) => it.id);
 
-        let itemsOut: Array<typeof storageSchema.item.$inferSelect & { childCount?: number }>; // response payload
+        // If any of the fetched items are files, convert BigInt size to string
+        type ItemDTO = Omit<typeof storageSchema.item.$inferSelect, "sizeByte"> & {childCount?: number, sizeByte: string | null };
+
+        const dto: ItemDTO[] = items.map<ItemDTO>((it) => ({
+          ...it,
+          sizeByte: it.sizeByte ? it.sizeByte.toString() : null,
+        }));
+
+        let itemsOut: ItemDTO[]; // response payload
 
         if (folderIds.length === 0) {
-          itemsOut = items;
+          itemsOut = dto;
         } else {
           // Build a map of folderId -> direct children count with the same visibility rules and trash filter
           const childCountRows = await (async () => {
@@ -302,7 +364,9 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
                   and(
                     eq(storageSchema.item.spaceId, ctx.spaceId),
                     inArray(storageSchema.item.parentId, folderIds),
-                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                    query.includeTrash
+                      ? sql`TRUE`
+                      : isNull(storageSchema.item.purgeAt)
                   )
                 )
                 .groupBy(storageSchema.item.parentId);
@@ -316,8 +380,14 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
                 .innerJoin(
                   storageSchema.itemEffectiveAccess,
                   and(
-                    eq(storageSchema.itemEffectiveAccess.id, storageSchema.item.id),
-                    eq(storageSchema.itemEffectiveAccess.spaceId, storageSchema.item.spaceId),
+                    eq(
+                      storageSchema.itemEffectiveAccess.id,
+                      storageSchema.item.id
+                    ),
+                    eq(
+                      storageSchema.itemEffectiveAccess.spaceId,
+                      storageSchema.item.spaceId
+                    ),
                     lte(storageSchema.itemEffectiveAccess.effectiveRank, 1000)
                   )
                 )
@@ -325,7 +395,9 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
                   and(
                     eq(storageSchema.item.spaceId, ctx.spaceId),
                     inArray(storageSchema.item.parentId, folderIds),
-                    query.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+                    query.includeTrash
+                      ? sql`TRUE`
+                      : isNull(storageSchema.item.purgeAt)
                   )
                 )
                 .groupBy(storageSchema.item.parentId);
@@ -333,13 +405,19 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           })();
 
           const countsMap = new Map<string, number>();
-          for (const row of childCountRows as Array<{ parentId: string | null; count: number }>) {
+          for (const row of childCountRows as Array<{
+            parentId: string | null;
+            count: number;
+          }>) {
             if (row.parentId) countsMap.set(row.parentId, Number(row.count));
           }
 
-          itemsOut = items.map((it) =>
+          itemsOut = dto.map((it) =>
             it.itemType === "folder"
-              ? ({ ...it, childCount: countsMap.get(it.id) ?? 0 } as typeof it & {
+              ? ({
+                  ...it,
+                  childCount: countsMap.get(it.id) ?? 0,
+                } as typeof it & {
                   childCount: number;
                 })
               : it
@@ -347,7 +425,9 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         }
 
         // Compute ancestors of the current folder (exclude the folder itself; root is an abstraction)
-        const guard = params.spaceId ? sql`AND space_id = ${params.spaceId}` : sql``;
+        const guard = params.spaceId
+          ? sql`AND space_id = ${params.spaceId}`
+          : sql``;
         const ancestorsRes = await db.execute(sql`
           WITH RECURSIVE parents AS (
             SELECT *
@@ -368,7 +448,16 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         `);
         const ancestors = ancestorsRes.rows;
 
-        return { success: true, data: { items: itemsOut, ancestors, ancestorsCount: ancestorsRes.rowCount } };
+        console.log(itemsOut);
+
+        return {
+          success: true,
+          data: {
+            items: itemsOut,
+            ancestors,
+            ancestorsCount: ancestorsRes.rowCount,
+          },
+        };
       } catch (e) {
         set.status = 500;
         return { success: false, data: { error: e } };
@@ -383,7 +472,12 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           t.Enum({ asc: "asc", desc: "desc" }, { default: "asc" })
         ),
         includeTrash: t.Optional(t.Boolean({ default: false })),
-        searchString: t.Optional(t.String({ minLength: citextConfig.minLength, maxLength: citextConfig.maxLength})),
+        searchString: t.Optional(
+          t.String({
+            minLength: citextConfig.minLength,
+            maxLength: citextConfig.maxLength,
+          })
+        ),
         match: t.Optional(t.Enum(MatchType)),
       }),
       params: t.Object({

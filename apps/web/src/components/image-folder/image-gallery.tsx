@@ -3,7 +3,10 @@ import { Folder } from "./folder";
 import type { storageSchema } from "@repo/rdb/schema";
 
 type ItemRow = typeof storageSchema.item.$inferSelect;
-type ItemWithChildCount = ItemRow & { childCount?: number };
+type ItemWithChildCount = Omit<ItemRow, "sizeByte"> & {
+  sizeByte: string | null;
+  childCount?: number;
+};
 
 interface ImageGalleryProps {
   isSelectable: boolean;
@@ -50,39 +53,41 @@ export function ImageGallery({
       )}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
         {itemsQuery.isSuccess
-          ? itemsQuery.data.data?.data?.items?.map((item: ItemWithChildCount) => {
-              if (item.itemType === "folder")
-                return (
-                  <Folder
-                    key={item.id}
-                    folder={{
-                      id: item.id,
-                      spaceId: item.spaceId,
-                      name: item.name,
-                      parent: item.parentId,
-                      imageCount: item.childCount ?? 0,
-                    }}
-                  />
-                );
-              if (item.itemType === "file")
-                return (
-                  <DisplayFile
-                    key={item.id}
-                    file={{
-                      id: item.id,
-                      name: item.name || "Untitled",
-                      url: "", // TODO: preview URL to be wired later
-                      uploadDate: item.createdAt,
-                      parent: item.parentId ?? "",
-                      size: "1",
-                    }}
-                    selectable={isSelectable}
-                    selected={selectedImageKeys.includes(item.id)}
-                    onToggle={() => onToggleCheckbox(item.id)}
-                  />
-                );
-              return null;
-            })
+          ? itemsQuery.data.data?.data?.items?.map(
+              (item: ItemWithChildCount) => {
+                if (item.itemType === "folder")
+                  return (
+                    <Folder
+                      key={item.id}
+                      folder={{
+                        id: item.id,
+                        spaceId: item.spaceId,
+                        name: item.name,
+                        parent: item.parentId,
+                        imageCount: item.childCount ?? 0,
+                      }}
+                    />
+                  );
+                if (item.itemType === "file")
+                  return (
+                    <DisplayFile
+                      key={item.id}
+                      file={{
+                        id: item.id,
+                        name: item.name || "Untitled",
+                        url: "", // TODO: preview URL to be wired later
+                        uploadDate: new Date(item.createdAt as any),
+                        parent: item.parentId ?? "",
+                        size: item.sizeByte as string,
+                      }}
+                      selectable={isSelectable}
+                      selected={selectedImageKeys.includes(item.id)}
+                      onToggle={() => onToggleCheckbox(item.id)}
+                    />
+                  );
+                return null;
+              }
+            )
           : null}
       </div>
     </div>
