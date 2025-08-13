@@ -2,6 +2,26 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 
+// Safe UUID generator for browser (fallback if crypto.randomUUID is unavailable)
+function genId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  // RFC4122-ish v4 fallback
+  const bytes = new Uint8Array(16)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes)
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256)
+  }
+  // Set version and variant
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const toHex = (n: number) => n.toString(16).padStart(2, '0')
+  const hex = Array.from(bytes, toHex).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
 
 type UploadStatus = 'queued' | 'uploading' | 'success' | 'error' | 'canceled'
 type UploadItem = {
@@ -60,11 +80,11 @@ export const useTransferStore = create<State>()(
       closeUpload: () => set((s) => { s.ui.uploadDialogOpen = false }),
       selectItem: (id) => set((s) => { s.ui.selectedItemIds.add(id) }),
       clearSelection: () => set((s) => { s.ui.selectedItemIds.clear() }),
-      enqueueUploads: (files, spaceId, folderId) => {
+  enqueueUploads: (files, spaceId, folderId) => {
         const ids: string[] = []
         set((s) => {
           for (const file of files) {
-            const id = Bun.randomUUIDv7()
+    const id = genId()
             ids.push(id)
             s.uploads[id] = { id, file, targetSpaceId: spaceId, targetFolderId: folderId, progress: 0, status: 'queued' }
           }

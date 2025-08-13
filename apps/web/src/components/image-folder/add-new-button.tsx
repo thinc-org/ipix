@@ -3,6 +3,8 @@ import { Button } from "../ui/button";
 import { CreateFolderButton } from ".";
 import { useOnClickOutside } from "usehooks-ts";
 import { useTransferStore } from "@/stores/fileStores";
+import { filterAllowedFiles, fileInputAccept } from "@/utils/allowedFiles";
+import { enqueueAndStart } from "@/features/uploads/multipart-upload";
 
 export function AddNewButton({
   spaceId,
@@ -22,6 +24,23 @@ export function AddNewButton({
 
   const toggleMenu = () => {
     setMenuVisible(!menuVisible);
+  };
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const onPickFiles = () => {
+    if (!canCreate) return;
+    fileInputRef.current?.click();
+  };
+
+  const onFilesSelected: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const files = Array.from(e.target.files || []);
+    // Reset value so selecting the same files again triggers change
+    e.currentTarget.value = "";
+    if (!files.length) return;
+    const allowed = filterAllowedFiles(files);
+    if (!allowed.length) return;
+    setMenuVisible(false);
+    await enqueueAndStart(allowed, spaceId, parentId);
   };
 
   return (
@@ -58,7 +77,7 @@ export function AddNewButton({
                 alt="Delete"
                 className="w-5 h-5"
               />
-              <Button variant="menu" disabled={!canCreate}>File Upload</Button>
+              <Button variant="menu" disabled={!canCreate} onClick={onPickFiles}>File Upload</Button>
             </div>
           </div>
         </div>
@@ -70,6 +89,15 @@ export function AddNewButton({
         variant="menu"
         spaceId={spaceId}
         parentId={parentId}
+      />
+      {/* hidden input for file picking */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+  accept={fileInputAccept}
+        className="hidden"
+        onChange={onFilesSelected}
       />
     </div>
   );

@@ -48,9 +48,7 @@ export function ImageGallery({
         </div>
       )}
       {itemsQuery.isFetching && (
-        <div className="text-3xl font-bold mb-8 text-gray-800">
-          Loading items…
-        </div>
+        <div className="mb-2 text-sm text-gray-500">Refreshing…</div>
       )}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
         {itemsQuery.isSuccess
