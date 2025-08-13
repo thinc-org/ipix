@@ -3,6 +3,10 @@
   "module": "index.ts",
   "type": "module",
   "private": "true",
+  "scripts": {
+    "start:preview-worker": "bun run src/worker-preview.ts",
+    "dev": "bun run src/worker-preview.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
@@ -11,9 +15,14 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.844.0",
-    "@aws-sdk/client-sts": "^3.844.0"
+    "@aws-sdk/client-sts": "^3.844.0",
+    "bullmq": "^5.25.6",
+    "ioredis": "^5.4.1",
+  "pg": "^8.16.3",
+  "sharp": "^0.34.3"
   },
   "exports": {
-    ".": "./index.ts"
+  ".": "./index.ts",
+  "./worker-preview": "./src/worker-preview.ts"
   }
 }

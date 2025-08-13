@@ -305,6 +305,7 @@ export const item = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }), // change to "cascade" after creating "principal" abstraction
     name: citext("name").notNull(),
+    liveName: citext("live_name"), // A generated col, from migration 0007
     mimeType: citext("mime_type"), // long future plan: RFC 6838 compliance
     sizeByte: bigint("size_byte", { mode: "bigint" }),
     /* Generated column rewritten to avoid table alias — Postgres rule */

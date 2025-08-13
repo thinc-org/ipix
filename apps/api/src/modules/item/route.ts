@@ -10,6 +10,9 @@ import {
   scopeItemsRead,
 } from "../../utils/queryHelper";
 import { citextConfig } from "@repo/rdb/types";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { s3, s3Bucket, expiresIn } from "@repo/s3";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
@@ -339,7 +342,7 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           .map((it) => it.id);
 
         // If any of the fetched items are files, convert BigInt size to string
-        type ItemDTO = Omit<typeof storageSchema.item.$inferSelect, "sizeByte"> & {childCount?: number, sizeByte: string | null };
+        type ItemDTO = Omit<typeof storageSchema.item.$inferSelect, "sizeByte"> & {childCount?: number, sizeByte: string | null, previewUrl?: string | null };
 
         const dto: ItemDTO[] = items.map<ItemDTO>((it) => ({
           ...it,
@@ -448,7 +451,92 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         `);
         const ancestors = ancestorsRes.rows;
 
-        console.log(itemsOut);
+        // Attach previewUrl for file items when a preview blob exists
+        try {
+          const fileItems = itemsOut.filter(
+            (it) => it.itemType === "file" && it.assetId
+          );
+          if (fileItems.length > 0) {
+            const itemIds = fileItems.map((it) => it.id);
+
+            // Fetch latest preview objectKey per item from our S3 bucket/provider
+            const previews = await db
+              .select({
+                itemId: storageSchema.fileBlobLocation.itemId,
+                objectKey: storageSchema.fileBlobLocation.objectKey,
+                updatedAt: storageSchema.fileBlobLocation.updatedAt,
+              })
+              .from(storageSchema.fileBlobLocation)
+              .where(
+                and(
+                  // kind = 'preview'
+                  eq(
+                    storageSchema.fileBlobLocation.kind,
+                    "preview" as any
+                  ),
+                  inArray(storageSchema.fileBlobLocation.itemId, itemIds),
+                  eq(
+                    storageSchema.fileBlobLocation.provider,
+                    "aws_s3" as any
+                  ),
+                  eq(
+                    storageSchema.fileBlobLocation.bucket,
+                    s3Bucket.toLowerCase()
+                  )
+                )
+              )
+              .orderBy(desc(storageSchema.fileBlobLocation.updatedAt));
+
+            // Pick most recent preview per item
+            const keyByItem = new Map<string, string>();
+            for (const p of previews as Array<{
+              itemId: string | null;
+              objectKey: string;
+              updatedAt: Date | string | null;
+            }>) {
+              if (p.itemId && !keyByItem.has(p.itemId)) {
+                keyByItem.set(p.itemId, p.objectKey);
+              }
+            }
+
+            // Presign URLs
+            const presignedByItem = new Map<string, string>();
+            const entries = Array.from(keyByItem.entries());
+            if (entries.length > 0) {
+              const urls = await Promise.all(
+                entries.map(async ([itemId, key]) => {
+                  try {
+                    const cmd = new GetObjectCommand({
+                      Bucket: s3Bucket,
+                      Key: key,
+                    });
+                    const url = await getSignedUrl(s3, cmd, {
+                      expiresIn,
+                    });
+                    return [itemId, url] as const;
+                  } catch {
+                    return [itemId, null] as const;
+                  }
+                })
+              );
+              for (const [itemId, url] of urls) {
+                if (url) presignedByItem.set(itemId, url);
+              }
+            }
+
+            // Merge into response
+            itemsOut = itemsOut.map((it) =>
+              it.itemType === "file"
+                ? {
+                    ...it,
+                    previewUrl: presignedByItem.get(it.id) ?? null,
+                  }
+                : it
+            );
+          }
+        } catch (e) {
+          // Non-fatal: if presigning fails, continue without previewUrl
+        }
 
         return {
           success: true,

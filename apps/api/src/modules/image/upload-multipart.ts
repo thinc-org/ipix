@@ -17,6 +17,7 @@ import { s3, expiresIn, s3Region, s3Bucket } from "@repo/s3";
 import { betterAuthMiddleware } from "../auth/route.js";
 import { createDb } from "../../drizzle/client.js";
 import { storageSchema } from "@repo/rdb/schema";
+import { previewQueue } from "@repo/s3/worker-preview";
 import {
   fileBlobLocationInsertSchema,
   item,
@@ -33,7 +34,7 @@ const S3_MAX_PART = 5 * 1024 * 1024 * 1024; // 5 GiB
 const S3_MAX_PARTS = 10_000n;
 const S3_MAX_PARTS_NUMBER = Number(S3_MAX_PARTS); // 10_000 as number
 const S3_MAX_OBJECT_SIZE = 5n * 1024n * 1024n * 1024n * 1024n; // 5 TB
-const S3_MAX_OBJECT_SIZE_NUMBER = Number(S3_MAX_OBJECT_SIZE)
+const S3_MAX_OBJECT_SIZE_NUMBER = Number(S3_MAX_OBJECT_SIZE);
 const PART_PRESIGN_EXPIRES_DEFAULT = expiresIn; // seconds
 const PART_PRESIGN_EXPIRES_MIN = 60;
 const PART_PRESIGN_EXPIRES_MAX = 3600;
@@ -112,7 +113,7 @@ const toStagingKey = (
   return `staging/${spaceId}/${itemId}/${uploadSessionObjKey}`;
 };
 
-const normalizeETag = (s: string) => s.replaceAll('"', '').replaceAll('\\', '');
+const normalizeETag = (s: string) => s.replaceAll('"', "").replaceAll("\\", "");
 
 const isValidBase64 = (s: string) =>
   /^[A-Za-z0-9+/]+={0,2}$/.test(s) && Buffer.from(s, "base64").length === 32;
@@ -860,7 +861,11 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
       };
     },
     {
-      params: t.Object({ spaceId: t.String({format: 'uuid'}),itemId: t.String({ format: "uuid" }), sessionKey: t.String({ format: "uuid" }) }),
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
+        itemId: t.String({ format: "uuid" }),
+        sessionKey: t.String({ format: "uuid" }),
+      }),
       query: t.Object({ expiresSec: t.Optional(t.Number()) }),
       body: t.Object({
         parts: t.Array(
@@ -935,7 +940,11 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
       return { success: true, data: { parts: parts } };
     },
     {
-      params: t.Object({ spaceId: t.String({format: 'uuid'}),itemId: t.String({ format: "uuid" }), sessionKey: t.String({ format: "uuid" }) }),
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
+        itemId: t.String({ format: "uuid" }),
+        sessionKey: t.String({ format: "uuid" }),
+      }),
       auth: { allowPublic: false },
     }
   )
@@ -986,7 +995,14 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
         .where(eq(uploadSession.key, sessionKey));
       return { success: true };
     },
-    {params: t.Object({ spaceId: t.String({format: 'uuid'}),itemId: t.String({ format: "uuid" }), sessionKey: t.String({ format: "uuid" }) }), auth: { allowPublic: false } }
+    {
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
+        itemId: t.String({ format: "uuid" }),
+        sessionKey: t.String({ format: "uuid" }),
+      }),
+      auth: { allowPublic: false },
+    }
   )
 
   /* multipart - complete upload */
@@ -1002,12 +1018,11 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
         undefined;
 
       // Validate body
-      const partsInput = body.parts as
-        | {
-            partNumber: number;
-            eTag: string;
-            checksumSHA256Base64?: string;
-          }[];
+      const partsInput = body.parts as {
+        partNumber: number;
+        eTag: string;
+        checksumSHA256Base64?: string;
+      }[];
       const clientSha256Hex = body.clientSha256Hex;
 
       if (
@@ -1242,7 +1257,7 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
               Parts: parts.map((p) => ({
                 PartNumber: p.partNumber,
                 ETag: p.eTag,
-                ChecksumSHA256: p.checksumSHA256Base64
+                ChecksumSHA256: p.checksumSHA256Base64,
               })),
             },
             ...(finalChecksumB64 ? { ChecksumSHA256: finalChecksumB64 } : {}),
@@ -1546,6 +1561,16 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
           .where(eq(uploadSession.key, sessionKey));
       });
 
+      await previewQueue.add("generate", {
+        spaceId: it.spaceId,
+        itemId: it.id,
+        assetId: assetRow.id,
+        variants: [
+          { variant: "thumb", algoV: 1, ext: "webp" },
+          { variant: "web", algoV: 1, ext: "webp" },
+        ],
+      });
+
       // Best-effort cleanup: delete staging object
       try {
         await s3.send(
@@ -1592,7 +1617,11 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
       };
     },
     {
-      params: t.Object({ spaceId: t.String({format: 'uuid'}), itemId: t.String({ format: "uuid" }), sessionKey: t.String({ format: "uuid" }) }),
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
+        itemId: t.String({ format: "uuid" }),
+        sessionKey: t.String({ format: "uuid" }),
+      }),
       body: t.Object({
         parts: t.Array(
           t.Object({

@@ -6,6 +6,7 @@ type ItemRow = typeof storageSchema.item.$inferSelect;
 type ItemWithChildCount = Omit<ItemRow, "sizeByte"> & {
   sizeByte: string | null;
   childCount?: number;
+  previewUrl?: string | null
 };
 
 interface ImageGalleryProps {
@@ -75,7 +76,7 @@ export function ImageGallery({
                       file={{
                         id: item.id,
                         name: item.name || "Untitled",
-                        url: "", // TODO: preview URL to be wired later
+                        url: item.previewUrl ?? "",
                         uploadDate: new Date(item.createdAt as any),
                         parent: item.parentId ?? "",
                         size: item.sizeByte as string,
