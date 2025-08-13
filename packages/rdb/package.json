@@ -9,11 +9,16 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "default": "./src/index.ts"
+  "types": "./src/index.ts",
+  "default": "./src/index.ts"
     },
     "./schema": {
-      "default": "./src/schema.ts"
+  "types": "./src/schema.ts",
+  "default": "./src/schema.ts"
+    },
+    "./types": {
+  "types": "./src/types.ts",
+  "default": "./src/types.ts"
     }
   },
   "dependencies": {

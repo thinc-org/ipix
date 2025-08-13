@@ -27,130 +27,8 @@ import {
   createSelectSchema,
   createUpdateSchema,
 } from "drizzle-typebox";
-
-/* CUSTOM TYPE */
-
-/* 
-citext: case-insensitive character string type
-refer to: https://www.postgresql.org/docs/current/citext.html
-*/
-const citext = customType<{ data: string }>({
-  dataType() {
-    return "citext";
-  },
-});
-
-/* citext length constraint */
-export const citextConfig = {
-  minLength: 1,
-  maxLength: 255,
-};
-
-/*
-bytea: variable-length binary string
-refer to: https://www.postgresql.org/docs/current/datatype-binary.html, https://stackoverflow.com/questions/76399047/how-to-represent-bytea-datatype-from-pg-inside-new-drizzle-orm
-*/
-const bytea = customType<{ data: Buffer }>({
-  dataType() {
-    return "bytea";
-  },
-});
-
-/*
-geometry(Point, 4326) that accepts { lon, lat } objects for WGS84 longitude/latitude
-refer to: https://orm.drizzle.team/docs/guides/postgis-geometry-point, https://news.ycombinator.com/item?id=40220072
-*/
-const geometryPoint4326 = customType<{
-  data: { lon: number; lat: number } | null;
-  driverData: string | null;
-}>({
-  dataType: () => "geometry(Point, 4326)",
-  toDriver(v) {
-    if (v == null) return null;
-    const { lon, lat } = v;
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) throw new Error("...");
-    if (lon < -180 || lon > 180 || lat < -90 || lat > 90)
-      throw new Error("...");
-    const toNumStr = (n: number) =>
-      n.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
-    return `SRID=4326;POINT(${toNumStr(lon)} ${toNumStr(lat)})`;
-  },
-  fromDriver(wkt) {
-    if (!wkt) return null;
-    const m = /^SRID=(\d+);POINT\(\s*([-+0-9.]+)\s+([-+0-9.]+)\s*\)$/.exec(wkt);
-    if (!m) return null;
-    const srid = Number(m[1]);
-    if (srid !== 4326) return null;
-    return { lon: parseFloat(m[2]), lat: parseFloat(m[3]) };
-  },
-});
-
-// Add a geography(Point, 4326) type for generated gps_geog
-const geographyPoint4326 = customType<{
-  data: { lon: number; lat: number } | null;
-  driverData: string | null;
-}>({
-  dataType: () => "geography(Point, 4326)",
-  toDriver(v) {
-    if (v == null) return null;
-    const { lon, lat } = v;
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) throw new Error("...");
-    if (lon < -180 || lon > 180 || lat < -90 || lat > 90)
-      throw new Error("...");
-    const toNumStr = (n: number) =>
-      n.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
-    return `SRID=4326;POINT(${toNumStr(lon)} ${toNumStr(lat)})`;
-  },
-  fromDriver(wkt) {
-    if (!wkt) return null;
-    const m = /^SRID=(\d+);POINT\(\s*([-+0-9.]+)\s+([-+0-9.]+)\s*\)$/.exec(wkt);
-    if (!m) return null;
-    const srid = Number(m[1]);
-    if (srid !== 4326) return null;
-    return { lon: parseFloat(m[2]), lat: parseFloat(m[3]) };
-  },
-});
-
-/* ENUMS */
-export const spaceTypeEnum = pgEnum("space_type", ["personal", "team"]);
-export const itemTypeEnum = pgEnum("item_type", ["file", "folder"]);
-export const transferStatus = pgEnum("transfer_status", [
-  "initiated",
-  "in_progress",
-  "completed",
-  "aborted",
-  "failed",
-]);
-export const fileStateEnum = pgEnum("file_state", [
-  "placeholder",
-  "processing",
-  "verifying",
-  "ready",
-]);
-export const blobProviderEnum = pgEnum("blob_provider", [
-  "aws_s3",
-  "gcs",
-  "azure_blob",
-  "r2",
-  "minio",
-]);
-export const blobStateEnum = pgEnum("blob_state", [
-  "staging",
-  "active",
-  "deleting",
-  "error",
-]);
-export const blobStorageClassEnum = pgEnum("blob_storage_class", [
-  "standard",
-  "infrequent_access",
-  "archive",
-]);
-export const blobLocKindEnum = pgEnum("blob_loc_kind", ["canon", "preview"]);
-export const checksumMode = pgEnum("checksum_mode", [
-  "s3_sha256",
-  "client_sha256",
-  "none",
-]);
+import { blobLocKindEnum, blobProviderEnum, blobStateEnum, blobStorageClassEnum, checksumMode, fileStateEnum, itemTypeEnum, spaceTypeEnum, transferStatus } from "../types/enums";
+import { bytea, citext, geographyPoint4326, geometryPoint4326 } from "../types/custom";
 
 // file_blob_location: Physical storage locator for an asset or its previews; records provider/region/bucket/object_key/version and distinguishes originals vs previews via `kind`. Exactly one canonical location per asset may be `is_primary=true`; previews are uniquely identified by `(asset, item, variant, algo_v, ext)` and must not be primary. Buckets are normalized to lowercase; partial unique indexes enforce safe versioning/region combinations and fast preview lookups.
 export const fileBlobLocation = pgTable(
@@ -634,6 +512,7 @@ export const uploadSession = pgTable(
     contentType: citext("content_type").default("application/octet-stream"),
     checksumMode: checksumMode("checksum_mode").notNull(),
     kmsKeyId: text("kms_key_id"),
+    idempotencyKey: text("idempotency_key"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
