@@ -1580,8 +1580,6 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
         // ignore
       }
 
-      Bun.sleep(2000);
-
       set.status = 200;
       return {
         success: true,

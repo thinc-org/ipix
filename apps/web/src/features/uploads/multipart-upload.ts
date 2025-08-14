@@ -210,6 +210,9 @@ async function uploadSingleFile(spaceId: string, parentId: string, id: string) {
   // Done
   useTransferStore.getState().setUploadStatus(id, "success");
 
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  await sleep(1500)
+
   // Replace optimistic flag with finalized data while refetch happens in background
   qc.setQueriesData({ predicate: (q) => optimisticKeyPredicate(q.queryKey as any) }, (prev: any) => {
     try {
