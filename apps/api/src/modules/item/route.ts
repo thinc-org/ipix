@@ -427,7 +427,7 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           );
         }
 
-        // Compute ancestors of the current folder (exclude the folder itself; root is an abstraction)
+        // Compute ancestors of the current folder
         const guard = params.spaceId
           ? sql`AND space_id = ${params.spaceId}`
           : sql``;
@@ -446,7 +446,6 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           )
           SELECT *
           FROM   parents
-          WHERE  id <> ${query.folderId}
           ORDER  BY created_at ASC;
         `);
         const ancestors = ancestorsRes.rows;
