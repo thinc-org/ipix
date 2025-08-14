@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { useImageDownload } from "@/hooks/image/useImageDownload";
 
 interface SelectionBarProps {
+  spaceId: string
   selectedCount: number;
   selectedImageKeys: string[];
   onCancel: () => void;
@@ -10,8 +11,9 @@ interface SelectionBarProps {
 }
 
 export function SelectionBar({
+  spaceId,
   selectedCount,
-  selectedImageKeys,
+  selectedImageKeys: selectedItemId,
   onCancel,
   onDelete,
 }: SelectionBarProps) {
@@ -30,7 +32,7 @@ export function SelectionBar({
           variant="ghost"
           size="sm"
           onClick={() => {
-            handleDownload(selectedImageKeys);
+            handleDownload(spaceId ,selectedItemId);
             onCancel();
           }}
           className="gap-1 hover:underline"

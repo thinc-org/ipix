@@ -1,24 +1,8 @@
 import app from "@/lib/fetch";
 
 export const useImageDownload = () => {
-  const downloadSingleImage = async (imageKey: string[]) => {
-    const { data: downloadKeys, error: err } = await app.s3[
-      "download-image-keys"
-    ].post({
-      keys: imageKey,
-    });
-    if (err) {
-      alert(`Failed to download: ${err?.value || "Unknown download error"}`);
-      return;
-    }
-    const k = downloadKeys.downloadKeys;
-    const j = k ?? "";
-    const encodedKey = encodeURIComponent(j[0]);
-    const { data, error } = await app.s3["image"]({
-      imageKey: encodedKey,
-    }).get({
-      query: { download: "true" },
-    });
+  const downloadSingleImage = async (spaceId: string, itemId: string) => {
+    const { data, error } = await app.v1.spaces({spaceId}).items({itemId}).download.get({query: {download: true}})
 
     if (!data?.url || error) {
       alert(`Failed to download: ${error?.value || "Unknown download error"}`);
@@ -27,52 +11,60 @@ export const useImageDownload = () => {
     window.location.href = data.url;
   };
 
-  const downloadMultipleImages = async (imageKeys: string[]) => {
-    const { data: downloadKeys, error } = await app.s3[
-      "download-image-keys"
-    ].post({
-      keys: imageKeys,
-    });
-    if (error) {
-      alert(`Failed to download: ${error?.value || "Unknown download error"}`);
-      return;
-    }
-    const response = await fetch(
-      `${process.env.API_BASE_URL ?? "http://localhost:20257"}/s3/batch-download`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ downloadKeys }),
-      }
-    );
-
-    if (!response.ok) {
-      const resJson = await response.json().catch(() => ({}));
-      throw new Error(
-        resJson.error || `${response.status} ${response.statusText}`
-      );
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+  // Trigger a download without navigating the page by clicking a temporary anchor.
+  const triggerDownload = (url: string, filename?: string) => {
     const a = document.createElement("a");
     a.href = url;
-    a.download = "files.zip";
+    if (filename) a.download = filename; // let server's Content-Disposition decide if not provided
+    a.rel = "noreferrer noopener";
+    // Don't set target to avoid popups; browsers will handle attachment downloads inline
+    document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+    // Clean up
+    document.body.removeChild(a);
   };
-  const handleDownload = async (keys: string[]) => {
-    if (keys.length === 0) {
+
+  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+  // Download multiple images by requesting presigned URLs and triggering downloads sequentially.
+  const downloadMultipleImages = async (
+    spaceId: string,
+    itemIds: string[],
+    opts?: { delayMs?: number }
+  ) => {
+    const delay = opts?.delayMs ?? 300;
+    for (const itemId of itemIds) {
+      try {
+        const { data, error } = await app.v1
+          .spaces({ spaceId })
+          .items({ itemId })
+          .download.get({ query: { download: true } });
+
+        if (!data?.url || error) {
+          console.error("Failed to get download URL", { itemId, error });
+          continue;
+        }
+
+        // Let server-provided Content-Disposition set filename; download attr is optional
+        triggerDownload(data.url);
+        if (delay > 0) await sleep(delay);
+      } catch (e) {
+        console.error("Error downloading item", { itemId, e });
+      }
+    }
+  };
+
+  const handleDownload = async (spaceId: string, itemIds: string[]) => {
+    if (itemIds.length === 0) {
       alert("Please select at least one image.");
       return;
     }
 
-    if (keys.length === 1) {
-      await downloadSingleImage(keys);
-    } else {
-      await downloadMultipleImages(keys);
+    if (itemIds.length === 1) {
+      await downloadSingleImage(spaceId, itemIds[0]);
+      return;
     }
+    await downloadMultipleImages(spaceId, itemIds);
   };
 
   return {

@@ -1,8 +1,5 @@
 import { Elysia, t } from "elysia";
-import {
-  GetObjectCommand,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
+import { GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { GetFederationTokenCommand } from "@aws-sdk/client-sts";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3, sts, expiresIn, s3Region, s3Bucket } from "@repo/s3";
@@ -11,11 +8,10 @@ import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
 import { createDb } from "../../drizzle/client.js";
 import { storageSchema } from "@repo/rdb/schema";
-import {
-  item,
-} from "../../../../../packages/rdb/src/schemas/storage.js";
+import { item } from "../../../../../packages/rdb/src/schemas/storage.js";
 import { eq, inArray, sql, and } from "drizzle-orm";
-import { loadAccessContext } from "../../utils/queryHelper.js";
+import { loadAccessContext, scopeItemRead } from "../../utils/queryHelper.js";
+import { errorFormatter } from "../../utils/resFormatter.js";
 
 const S3_MIN_PART = 5 * 1024 * 1024; // 5 MiB
 const S3_MAX_PART = 5 * 1024 * 1024 * 1024; // 5 GiB
@@ -39,13 +35,14 @@ function recommendPartSize(total: bigint): number {
   const parts = (total + S3_MAX_PARTS - 1n) / S3_MAX_PARTS;
   const miB = 1024n * 1024n;
   const rounded = ((parts + miB - 1n) / miB) * miB;
-  const clamped = rounded < MIN ? MIN : (rounded > MAX ? MAX : rounded);
+  const clamped = rounded < MIN ? MIN : rounded > MAX ? MAX : rounded;
   return Number(clamped);
 }
 
 // Helper: extract itemId from an object key that is either a UUID or `${uuid}-${name}`
 const extractItemIdFromKey = (key: string): string | null => {
-  const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+  const uuidPattern =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
   if (uuidPattern.test(key)) return key;
   const m = key.match(
     /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})-/
@@ -57,55 +54,81 @@ export const s3Router = new Elysia({ prefix: "/v1" })
   .use(betterAuthMiddleware)
   //Get single image
   .get(
-    "/image/:imageKey",
+    "/spaces/:spaceId/items/:itemId/download",
     async ({ params, set, query, user }) => {
-      const { imageKey } = params;
-      const { download } = query;
-
+      const doDownload = query.download ?? true;
       // AuthN/Z: allow if public or owner
-      const itemId = extractItemIdFromKey(imageKey);
-      if (!itemId) {
-        set.status = 403;
-        return { error: "forbidden" };
+      const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId);
+
+      const canAccessItem = await scopeItemRead(ctx, {
+        itemId: params.itemId,
+        includeTrash: false,
+      });
+
+      if (canAccessItem.length === 0) {
+        const errMessage = errorFormatter(403, "ERR_FORBIDDEN_WRITE", {});
+        set.status = errMessage.status;
+        return {
+          success: false,
+          data: null,
+          error: { errMessage },
+        };
       }
 
-      const rows = await db
-        .select({
-          id: item.id,
-          createdBy: item.createdBy,
-          accessType: item.accessType,
-          trashedAt: item.trashedAt,
-        })
-        .from(item)
-        .where(eq(item.id, itemId))
-        .limit(1);
+      // Normalize to a flat item row for a consistent API contract.
+      let [item]: (typeof storageSchema.item.$inferSelect)[] = (
+        canAccessItem as any[]
+      ).map((r) =>
+        "item" in r
+          ? (r.item as typeof storageSchema.item.$inferSelect)
+          : (r as typeof storageSchema.item.$inferSelect)
+      );
 
-      if (rows.length === 0) {
-        set.status = 404;
-        return { error: "not_found" };
+      if (item.itemType !== "file") {
+        const errMessage = errorFormatter(422, "INVALID_TYPE", {
+          field: "Item",
+          expected: "file",
+          actualType: item.itemType,
+        });
+        set.status = errMessage.status;
+        return { success: false, data: null, error: errMessage };
       }
 
-      const rec = rows[0];
-      const isOwner = !!user?.id && String(rec.createdBy) === String(user.id);
-      const isPublic =
-        String((rec as any).accessType ?? "").toLowerCase() === "public";
-
-      if (!isPublic && !isOwner) {
-        set.status = 403;
-        return { error: "forbidden" };
+      if (item.assetId === null) {
+        const errMessage = errorFormatter(500, "UNEXPECTED_TYPE", {
+          field: "assetId",
+          expected: "not empty",
+          actualType: "empty",
+        });
       }
-      if (rec.trashedAt) {
-        set.status = 410;
-        return { error: "gone" };
+
+      let [file] = await db
+        .select()
+        .from(storageSchema.fileBlobLocation)
+        .where(
+          and(
+            eq(storageSchema.fileBlobLocation.assetId, item.assetId!),
+            eq(storageSchema.fileBlobLocation.kind, "canon")
+          )
+        );
+
+      if (!file) {
+        const errMessage = errorFormatter(404, "NOT_FOUND", {
+          obj: "file",
+          queryKey: "itemId",
+          queryValue: params.itemId,
+        });
+        set.status = errMessage.status;
+        return { success: false, data: null, error: errMessage };
       }
 
       const getObjectCommandInput = {
         Bucket: BUCKET,
-        Key: imageKey,
+        Key: file.objectKey,
       };
 
-      if (download === "true") {
-        const filename = imageKey.split("/").pop() || "download";
+      if (doDownload === true) {
+        const filename = item.liveName ?? item.name;
         Object.assign(getObjectCommandInput, {
           ResponseContentDisposition: `attachment; filename="${decodeURIComponent(filename)}"`,
         });
@@ -123,65 +146,24 @@ export const s3Router = new Elysia({ prefix: "/v1" })
       return { url, expires: expiresIn };
     },
     {
-      params: t.Object({ imageKey: t.String() }),
-      query: t.Object({ download: t.Optional(t.String()) }),
+      params: t.Object({
+        spaceId: t.String({ format: "uuid" }),
+        itemId: t.String({ format: "uuid" }),
+      }),
+      query: t.Object({ download: t.Optional(t.Boolean()) }),
       auth: { allowPublic: true },
     }
   )
 
   //Bulk download image
-  .post(
-    "/batch-download",
-    async ({ body, set, user }) => {
+/*   .post(
+    "/spaces/:spaceId/batch-download",
+    async ({ body, set, params, user }) => {
       const { imageKeys } = body;
 
-      const keysArray = imageKeys.filter((key: string) => key !== "");
-      if (keysArray.length === 0) {
-        set.status = 400;
-        return { error: "No valid image keys provided for download." };
-      }
+      const ctx = await loadAccessContext(db, user?.id ?? null, params.spaceId)
 
-      // Resolve and filter authorized keys (public or owned by requester)
-      const idToKeys = new Map<string, string[]>();
-      const ids: string[] = [];
-      for (const k of keysArray) {
-        const id = extractItemIdFromKey(k);
-        if (id) {
-          if (!idToKeys.has(id)) idToKeys.set(id, []);
-          idToKeys.get(id)!.push(k);
-          ids.push(id);
-        }
-      }
-      const uniqueIds = Array.from(new Set(ids));
-      if (uniqueIds.length === 0) {
-        set.status = 403;
-        return { error: "No authorized files for download." };
-      }
-
-      const dbRows = await db
-        .select({
-          id: item.id,
-          createdBy: item.createdBy,
-          accessType: item.accessType,
-          trashedAt: item.trashedAt,
-        })
-        .from(item)
-        .where(inArray(item.id, uniqueIds));
-
-      const allowedIds = new Set<string>();
-      for (const r of dbRows) {
-        const isOwner = !!user?.id && String(r.createdBy) === String(user.id);
-        const isPublic =
-          String((r as any).accessType ?? "").toLowerCase() === "public";
-        if (!r.trashedAt && (isPublic || isOwner)) {
-          allowedIds.add(String(r.id));
-        }
-      }
-
-      const allowedKeys: string[] = [];
-      for (const [id, ks] of idToKeys) {
-        if (allowedIds.has(id)) allowedKeys.push(...ks);
-      }
+      
 
       if (allowedKeys.length === 0) {
         set.status = 403;
@@ -235,7 +217,10 @@ export const s3Router = new Elysia({ prefix: "/v1" })
           }
         }
         await Promise.all(
-          Array.from({ length: Math.min(CONCURRENCY, allowedKeys.length) }, worker)
+          Array.from(
+            { length: Math.min(CONCURRENCY, allowedKeys.length) },
+            worker
+          )
         );
         await archive.finalize();
       })();
@@ -243,12 +228,13 @@ export const s3Router = new Elysia({ prefix: "/v1" })
       return zipStream;
     },
     {
+      params: t.Object({ spaceId: t.String({ format: "uuid" }) }),
       body: t.Object({
         imageKeys: t.Array(t.String()),
       }),
       auth: { allowPublic: true },
     }
-  )
+  ) */
 
   //get bulk image (maybe optimizing for scalability ex pagination in the future??)
   .get(

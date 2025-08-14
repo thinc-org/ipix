@@ -28,6 +28,7 @@ export function FileToolBar({
     <div className="sticky top-[10vh] z-50 bg-background py-4 ml-[20vw] flex justify-end gap-4">
       {isSelectable ? (
         <SelectionBar
+        spaceId={spaceInfo.spaceId}
           selectedCount={selectedCount}
           selectedImageKeys={selectedImageKeys}
           onCancel={onCancel}

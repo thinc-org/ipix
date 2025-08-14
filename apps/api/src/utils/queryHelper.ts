@@ -40,14 +40,14 @@ export function ensureOwner(ctx: AccessContext) {
   return true;
 }
 
-export async function scopeItemRead<T extends PgSelect>(
+export async function scopeItemRead(
   ctx: AccessContext,
   args: {
     itemId: string;
     includeTrash?: boolean;
   }
 ) {
-  let qb = db.select().from(storageSchema.item)
+  let qb = db.select().from(storageSchema.item);
   const base = ctx.isOwner
     ? qb
     : qb.innerJoin(
@@ -62,13 +62,15 @@ export async function scopeItemRead<T extends PgSelect>(
         )
       );
 
-  return await base.where(
-    and(
-      eq(storageSchema.item.spaceId, ctx.spaceId),
-      eq(storageSchema.item.id, args.itemId),
-      args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+  return await base
+    .where(
+      and(
+        eq(storageSchema.item.spaceId, ctx.spaceId),
+        eq(storageSchema.item.id, args.itemId),
+        args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt)
+      )
     )
-  ).limit(1);
+    .limit(1);
 }
 
 export function scopeItemsRead<T extends PgSelect>(
@@ -76,12 +78,19 @@ export function scopeItemsRead<T extends PgSelect>(
   ctx: AccessContext,
   args: {
     parentId: string | null;
+    skipParentCheck?: boolean;
     includeTrash?: boolean;
     name?: string;
     match?: MatchType;
   }
 ) {
-  const match = args.match ?? MatchType.CONTAINS
+  args.skipParentCheck = args.skipParentCheck ?? false;
+  const parentIdFilter = args.skipParentCheck
+    ? sql`TRUE`
+    : args.parentId === null
+      ? isNull(storageSchema.item.parentId)
+      : eq(storageSchema.item.parentId, args.parentId);
+  const match = args.match ?? MatchType.CONTAINS;
   const base = ctx.isOwner
     ? qb
     : qb.innerJoin(
@@ -99,11 +108,11 @@ export function scopeItemsRead<T extends PgSelect>(
   return base.where(
     and(
       eq(storageSchema.item.spaceId, ctx.spaceId),
-      args.parentId === null
-        ? isNull(storageSchema.item.parentId)
-        : eq(storageSchema.item.parentId, args.parentId),
+      parentIdFilter,
       args.includeTrash ? sql`TRUE` : isNull(storageSchema.item.purgeAt),
-      args.name ? patternBuilder(storageSchema.item.name, args.name, match) : sql`TRUE`
+      args.name
+        ? patternBuilder(storageSchema.item.name, args.name, match)
+        : sql`TRUE`
     )
   );
 }
@@ -120,7 +129,7 @@ export const MatchType = {
   EXACT: "exact",
   CONTAINS: "contains",
   STARTS_WITH: "startsWith",
-  ID: "id"
+  ID: "id",
 } as const;
 export type MatchType = (typeof MatchType)[keyof typeof MatchType];
 
@@ -130,11 +139,15 @@ export function withMatch<T extends PgSelect>(
   matchType: MatchType,
   searchString: string
 ): T {
-  return qb.where(patternBuilder(matchColumn, searchString, matchType))
+  return qb.where(patternBuilder(matchColumn, searchString, matchType));
 }
 
-function patternBuilder(matchColumn: PgColumn, searchString: string, matchType: MatchType) {
-    switch (matchType) {
+function patternBuilder(
+  matchColumn: PgColumn,
+  searchString: string,
+  matchType: MatchType
+) {
+  switch (matchType) {
     case MatchType.EXACT:
       return eq(matchColumn, searchString);
 
@@ -145,7 +158,7 @@ function patternBuilder(matchColumn: PgColumn, searchString: string, matchType: 
       return like(matchColumn, `${searchString}%`);
 
     case MatchType.ID:
-      return eq(matchColumn, searchString) // This should be rewritten ASAP
+      return eq(matchColumn, searchString); // This should be rewritten ASAP
 
     default: {
       // Exhaustiveness guard – makes sure we handled every literal
