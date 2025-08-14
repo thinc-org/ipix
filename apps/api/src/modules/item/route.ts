@@ -109,9 +109,9 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           })();
 
           const withCount = {
-            ...(item as any),
+            ...(item),
             childCount: childCountRow
-              ? Number((childCountRow as any).count)
+              ? Number((childCountRow).count)
               : 0,
           };
           return { success: true, data: { item: withCount } };
@@ -246,7 +246,7 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
             mimeType: created.mimeType,
             sizeByte:
               created.sizeByte === null ? null : String(created.sizeByte),
-            createdAt: new Date(created.createdAt as any).toISOString(),
+            createdAt: new Date(created.createdAt).toISOString(),
           },
         };
       } catch (e) {
@@ -471,12 +471,12 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
                   // kind = 'preview'
                   eq(
                     storageSchema.fileBlobLocation.kind,
-                    "preview" as any
+                    "preview"
                   ),
                   inArray(storageSchema.fileBlobLocation.itemId, itemIds),
                   eq(
                     storageSchema.fileBlobLocation.provider,
-                    "aws_s3" as any
+                    "aws_s3"
                   ),
                   eq(
                     storageSchema.fileBlobLocation.bucket,
