@@ -14,10 +14,12 @@ import cron from "@elysiajs/cron";
 import { createDb } from "./drizzle/client.js";
 import {sql} from 'drizzle-orm'
 import { uploadRouter } from "./modules/image/upload-multipart.js";
+import { rateLimit } from "elysia-rate-limit";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
 const app = new Elysia()
+  .use(rateLimit({duration: 60000, max: 500, scoping: 'global'}))
   .use(betterAuthMiddleware)
   .use(cron({
     name: 'alphaRecalcQueueDelete',

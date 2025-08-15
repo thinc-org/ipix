@@ -17,6 +17,7 @@
     "clean": "turbo run clean"
   },
   "dependencies": {
+    "elysia-rate-limit": "^4.4.0",
     "eslint": "^9.28.0",
     "sharp": "^0.34.3",
     "usehooks-ts": "^3.1.1"
