@@ -51,7 +51,7 @@ export const auth = betterAuth({
   advanced: {
     defaultCookieAttributes: {
       sameSite: "lax",
-      secure: false, // TODO Set to true in production with HTTPS
+      secure: true, // TODO Set to true in production with HTTPS
     },
     database: {
       generateId: (options: {}) => {
@@ -118,7 +118,8 @@ export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
   .all("/api/auth/*", async (context: Context) => {
     if (["POST", "GET"].includes(context.request.method)) {
       const response = await auth.handler(context.request);
-
+  
+      console.log(response);
       // If it's a redirect response, make sure to return it properly
       if (response && response.status >= 300 && response.status < 400) {
         const location = response.headers.get("Location");
@@ -139,7 +140,6 @@ export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
 
     context.status(405);
   })
-  .mount(auth.handler)
   .macro({
     // Boolean or object config; context always includes user/session (nullable when unauthenticated)
     auth: (config: { allowPublic: boolean }) => ({

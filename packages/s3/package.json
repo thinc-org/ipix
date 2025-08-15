@@ -4,9 +4,9 @@
   "type": "module",
   "private": "true",
   "scripts": {
-    "start:preview-worker": "bun run src/worker-preview.ts",
-    "dev": "bun run src/worker-preview.ts",
-    "build": "bun run src/worker-preview.ts"
+  "start:preview-worker": "bun dist/worker-preview.js",
+  "dev": "bun --watch src/worker-preview.ts",
+  "build": "bun build src/worker-preview.ts --target bun --outdir ./dist"
   },
   "devDependencies": {
     "@types/bun": "latest"
