@@ -1,107 +1,160 @@
-import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
-import { immer } from 'zustand/middleware/immer'
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
+import { immer } from "zustand/middleware/immer";
 
 // Safe UUID generator for browser (fallback if crypto.randomUUID is unavailable)
 function genId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
+  if (
+    typeof crypto !== "undefined" &&
+    "randomUUID" in crypto &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
   }
   // RFC4122-ish v4 fallback
-  const bytes = new Uint8Array(16)
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes)
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
   } else {
-    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256)
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
   // Set version and variant
-  bytes[6] = (bytes[6] & 0x0f) | 0x40
-  bytes[8] = (bytes[8] & 0x3f) | 0x80
-  const toHex = (n: number) => n.toString(16).padStart(2, '0')
-  const hex = Array.from(bytes, toHex).join('')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const toHex = (n: number) => n.toString(16).padStart(2, "0");
+  const hex = Array.from(bytes, toHex).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-
-type UploadStatus = 'queued' | 'uploading' | 'success' | 'error' | 'canceled'
+type UploadStatus = "queued" | "uploading" | "success" | "error" | "canceled";
 type UploadItem = {
-  id: string
-  file: File
-  targetSpaceId: string,
-  targetFolderId: string
-  progress: number // 0..100
-  status: UploadStatus
-  error?: string
-  cancel?: () => void
-}
+  id: string;
+  file: File;
+  targetSpaceId: string;
+  targetFolderId: string;
+  progress: number; // 0..100
+  status: UploadStatus;
+  error?: string;
+  cancel?: () => void;
+};
 
-type DownloadStatus = 'queued' | 'downloading' | 'success' | 'error' | 'canceled'
+type DownloadStatus =
+  | "queued"
+  | "downloading"
+  | "success"
+  | "error"
+  | "canceled";
 type DownloadItem = {
-  id: string
-  progress: number
-  status: DownloadStatus
-  error?: string
-  cancel?: () => void
-}
+  id: string;
+  progress: number;
+  status: DownloadStatus;
+  error?: string;
+  cancel?: () => void;
+};
 
 type UIState = {
-  newFolderOpen: boolean
-  uploadDialogOpen: boolean
-  selectedItemIds: Set<string>
-}
+  newFolderOpen: boolean;
+  uploadDialogOpen: boolean;
+  selectedItemIds: Set<string>;
+};
 
 type State = {
-  ui: UIState
-  uploads: Record<string, UploadItem>
-  downloads: Record<string, DownloadItem>
-  openNewFolder: () => void
-  closeNewFolder: () => void
-  openUpload: () => void
-  closeUpload: () => void
-  selectItem: (id: string) => void
-  clearSelection: () => void
-  enqueueUploads: (files: File[], spaceId: string, folderId: string) => string[] // returns ids
-  setUploadProgress: (id: string, progress: number) => void
-  setUploadStatus: (id: string, status: UploadStatus, error?: string) => void
-  setUploadCancel: (id: string, cancel: () => void) => void
-  removeUpload: (id: string) => void
+  ui: UIState;
+  uploads: Record<string, UploadItem>;
+  downloads: Record<string, DownloadItem>;
+  openNewFolder: () => void;
+  closeNewFolder: () => void;
+  openUpload: () => void;
+  closeUpload: () => void;
+  selectItem: (id: string) => void;
+  clearSelection: () => void;
+  enqueueUploads: (
+    files: File[],
+    spaceId: string,
+    folderId: string
+  ) => string[]; // returns ids
+  setUploadProgress: (id: string, progress: number) => void;
+  setUploadStatus: (id: string, status: UploadStatus, error?: string) => void;
+  setUploadCancel: (id: string, cancel: () => void) => void;
+  removeUpload: (id: string) => void;
   // similar for downloads...
-}
+};
 
 export const useTransferStore = create<State>()(
   devtools(
     immer((set) => ({
-      ui: { newFolderOpen: false, uploadDialogOpen: false, selectedItemIds: new Set() },
+      ui: {
+        newFolderOpen: false,
+        uploadDialogOpen: false,
+        selectedItemIds: new Set(),
+      },
       uploads: {},
       downloads: {},
-      openNewFolder: () => set((s) => { s.ui.newFolderOpen = true }),
-      closeNewFolder: () => set((s) => { s.ui.newFolderOpen = false }),
-      openUpload: () => set((s) => { s.ui.uploadDialogOpen = true }),
-      closeUpload: () => set((s) => { s.ui.uploadDialogOpen = false }),
-      selectItem: (id) => set((s) => { s.ui.selectedItemIds.add(id) }),
-      clearSelection: () => set((s) => { s.ui.selectedItemIds.clear() }),
-  enqueueUploads: (files, spaceId, folderId) => {
-        const ids: string[] = []
+      openNewFolder: () =>
+        set((s) => {
+          s.ui.newFolderOpen = true;
+        }),
+      closeNewFolder: () =>
+        set((s) => {
+          s.ui.newFolderOpen = false;
+        }),
+      openUpload: () =>
+        set((s) => {
+          s.ui.uploadDialogOpen = true;
+        }),
+      closeUpload: () =>
+        set((s) => {
+          s.ui.uploadDialogOpen = false;
+        }),
+      selectItem: (id) =>
+        set((s) => {
+          s.ui.selectedItemIds.add(id);
+        }),
+      clearSelection: () =>
+        set((s) => {
+          s.ui.selectedItemIds.clear();
+        }),
+      enqueueUploads: (files, spaceId, folderId) => {
+        const ids: string[] = [];
         set((s) => {
           for (const file of files) {
-    const id = genId()
-            ids.push(id)
-            s.uploads[id] = { id, file, targetSpaceId: spaceId, targetFolderId: folderId, progress: 0, status: 'queued' }
+            const id = genId();
+            ids.push(id);
+            s.uploads[id] = {
+              id,
+              file,
+              targetSpaceId: spaceId,
+              targetFolderId: folderId,
+              progress: 0,
+              status: "queued",
+            };
           }
-        })
-        return ids
+        });
+        return ids;
       },
-      setUploadProgress: (id, progress) => set((s) => { if (s.uploads[id]) s.uploads[id].progress = progress }),
-      setUploadStatus: (id, status, error) => set((s) => {
-        const u = s.uploads[id]; if (!u) return
-        u.status = status; u.error = error
-        if (status === 'success') u.progress = 100
-      }),
-      setUploadCancel: (id, cancel) => set((s) => { if (s.uploads[id]) s.uploads[id].cancel = cancel }),
-      removeUpload: (id) => set((s) => { delete s.uploads[id] }),
+      setUploadProgress: (id, progress) =>
+        set((s) => {
+          if (s.uploads[id]) s.uploads[id].progress = progress;
+        }),
+      setUploadStatus: (id, status, error) =>
+        set((s) => {
+          const u = s.uploads[id];
+          if (!u) return;
+          u.status = status;
+          u.error = error;
+          if (status === "success") u.progress = 100;
+        }),
+      setUploadCancel: (id, cancel) =>
+        set((s) => {
+          if (s.uploads[id]) s.uploads[id].cancel = cancel;
+        }),
+      removeUpload: (id) =>
+        set((s) => {
+          delete s.uploads[id];
+        }),
     }))
   )
-)
+);
 
 /* 
 Upload flow (store + mutation + progress)
