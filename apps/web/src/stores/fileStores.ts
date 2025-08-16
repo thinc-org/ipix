@@ -55,6 +55,7 @@ type DownloadItem = {
 type UIState = {
   newFolderOpen: boolean;
   uploadDialogOpen: boolean;
+  shareDialogOpen: boolean;
   selectedItemIds: Set<string>;
 };
 
@@ -64,6 +65,8 @@ type State = {
   downloads: Record<string, DownloadItem>;
   openNewFolder: () => void;
   closeNewFolder: () => void;
+  openShare: () => void;
+  closeShare: () => void;
   openUpload: () => void;
   closeUpload: () => void;
   selectItem: (id: string) => void;
@@ -86,6 +89,7 @@ export const useTransferStore = create<State>()(
       ui: {
         newFolderOpen: false,
         uploadDialogOpen: false,
+        shareDialogOpen: false,
         selectedItemIds: new Set(),
       },
       uploads: {},
@@ -97,6 +101,14 @@ export const useTransferStore = create<State>()(
       closeNewFolder: () =>
         set((s) => {
           s.ui.newFolderOpen = false;
+        }),
+      openShare: () =>
+        set((s) => {
+          s.ui.shareDialogOpen = true;
+        }),
+      closeShare: () =>
+        set((s) => {
+          s.ui.shareDialogOpen = false;
         }),
       openUpload: () =>
         set((s) => {
