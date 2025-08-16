@@ -70,8 +70,9 @@ export const auth = betterAuth({
       databaseUrl: process.env.DATABASE_URL,
     }),
     {
-      provider: "pg",
       schema: authSchema,
+      provider: "pg",
+      debugLogs: true
     }
   ),
   emailAndPassword: {
