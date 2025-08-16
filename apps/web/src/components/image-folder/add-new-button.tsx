@@ -15,7 +15,10 @@ export function AddNewButton({
 }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const canCreate = useMemo(() => Boolean(spaceId && parentId), [spaceId, parentId]);
+  const canCreate = useMemo(
+    () => Boolean(spaceId && parentId),
+    [spaceId, parentId]
+  );
   const openNewFolder = useTransferStore((s) => s.openNewFolder);
 
   useOnClickOutside(menuRef as React.RefObject<HTMLElement>, () => {
@@ -32,7 +35,9 @@ export function AddNewButton({
     fileInputRef.current?.click();
   };
 
-  const onFilesSelected: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+  const onFilesSelected: React.ChangeEventHandler<HTMLInputElement> = async (
+    e
+  ) => {
     const files = Array.from(e.target.files || []);
     // Reset value so selecting the same files again triggers change
     e.currentTarget.value = "";
@@ -77,7 +82,13 @@ export function AddNewButton({
                 alt="Delete"
                 className="w-5 h-5"
               />
-              <Button variant="menu" disabled={!canCreate} onClick={onPickFiles}>File Upload</Button>
+              <Button
+                variant="menu"
+                disabled={!canCreate}
+                onClick={onPickFiles}
+              >
+                File Upload
+              </Button>
             </div>
           </div>
         </div>
@@ -95,7 +106,7 @@ export function AddNewButton({
         ref={fileInputRef}
         type="file"
         multiple
-  accept={fileInputAccept}
+        accept={fileInputAccept}
         className="hidden"
         onChange={onFilesSelected}
       />
