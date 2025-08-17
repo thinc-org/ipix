@@ -220,10 +220,36 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         // Normalize MIME type to lowercase
         const normalizedMime = body.contentType.trim().toLowerCase();
 
+        // Compute the first available name to avoid unique constraint errors
+        // Picks: name, name (1), name (2), ... within the same parent/space for non-trashed items
+        const availableNameRes = await db.execute(sql`
+          WITH existing AS (
+            SELECT name
+            FROM ${storageSchema.item}
+            WHERE space_id = ${params.spaceId}
+              AND (parent_id IS NOT DISTINCT FROM ${body.parentId})
+              AND purge_at IS NULL
+          ),
+          candidate AS (
+            SELECT ${body.name} AS name
+            UNION ALL
+            SELECT ${body.name} || ' (' || gs.i::text || ')' AS name
+            FROM generate_series(1, 10000) AS gs(i)
+          )
+          SELECT c.name
+          FROM candidate c
+          LEFT JOIN existing e ON e.name = c.name
+          WHERE e.name IS NULL
+          ORDER BY length(c.name), c.name
+          LIMIT 1;
+        `);
+
+        const availableName = (availableNameRes as any)?.rows?.[0]?.name ?? body.name;
+
         const inserted = await db
           .insert(storageSchema.item)
           .values({
-            name: body.name,
+            name: availableName,
             spaceId: params.spaceId,
             parentId: body.parentId,
             createdBy: user!.id,
