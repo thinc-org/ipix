@@ -112,6 +112,7 @@ const rawMimes = [
 
   // Nikon
   'image/x-nikon-nef',
+  'image/nef',
   'image/x-nikon-nrw',
 
   // Sony
