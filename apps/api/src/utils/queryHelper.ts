@@ -181,3 +181,16 @@ export const getColumnLength = (column: PgColumn) => {
 
   return length;
 };
+
+export async function getDescendantFileIds(
+  folderIds: string[],
+  spaceId: string
+): Promise<string[]> {
+  const result = await db.execute<{ id: string }>(
+    sql`
+      SELECT * 
+      FROM get_descendant_file_ids(${sql.raw(`ARRAY[${folderIds.map((id) => `'${id}'`).join(",")}]::uuid[]`)}, ${spaceId}::uuid);
+    `
+  );
+  return result.rows.map((r) => r.id);
+}

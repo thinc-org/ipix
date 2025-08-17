@@ -1,13 +1,13 @@
 import { X, Download, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { useImageDownload } from "@/hooks/image/useImageDownload";
+import { useHardDeleteBatchItems } from "@/features/item/hook";
 
 interface SelectionBarProps {
-  spaceId: string
+  spaceId: string;
   selectedCount: number;
   selectedImageKeys: string[];
   onCancel: () => void;
-  onDelete: () => void;
 }
 
 export function SelectionBar({
@@ -15,9 +15,9 @@ export function SelectionBar({
   selectedCount,
   selectedImageKeys: selectedItemId,
   onCancel,
-  onDelete,
 }: SelectionBarProps) {
   const { handleDownload } = useImageDownload();
+  const { deleteItems } = useHardDeleteBatchItems();
 
   return (
     <div className="w-full flex justify-between items-center bg-muted py-2 rounded-md shadow-sm">
@@ -32,7 +32,7 @@ export function SelectionBar({
           variant="ghost"
           size="sm"
           onClick={() => {
-            handleDownload(spaceId ,selectedItemId);
+            handleDownload(spaceId, selectedItemId);
             onCancel();
           }}
           className="gap-1 hover:underline"
@@ -43,7 +43,10 @@ export function SelectionBar({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onDelete}
+          onClick={() => {
+            deleteItems({ spaceId, itemIds: selectedItemId });
+            onCancel();
+          }}
           className="gap-1 hover:underline"
         >
           <Trash2 className="w-4 h-4" />

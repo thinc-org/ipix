@@ -52,9 +52,6 @@ export function SpacePage({
             folderId: spaceInfo.folderId,
           }}
           onCancel={toggleSelectable}
-          onDelete={() => {
-            console.log("delete");
-          }}
           onToggleSelect={toggleSelectable}
         />
 

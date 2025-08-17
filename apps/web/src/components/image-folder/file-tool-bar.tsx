@@ -11,7 +11,6 @@ interface FileToolBarProps {
     folderId: string;
   };
   onCancel: () => void;
-  onDelete: () => void;
   onToggleSelect: () => void;
 }
 
@@ -21,18 +20,16 @@ export function FileToolBar({
   selectedImageKeys,
   spaceInfo,
   onCancel,
-  onDelete,
   onToggleSelect,
 }: FileToolBarProps) {
   return (
     <div className="sticky top-[10vh] z-50 bg-background py-4 ml-[20vw] flex justify-end gap-4">
       {isSelectable ? (
         <SelectionBar
-        spaceId={spaceInfo.spaceId}
+          spaceId={spaceInfo.spaceId}
           selectedCount={selectedCount}
           selectedImageKeys={selectedImageKeys}
           onCancel={onCancel}
-          onDelete={onDelete}
         />
       ) : (
         <>

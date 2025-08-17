@@ -7,6 +7,8 @@ import {
 import * as itemApi from "./api";
 import { itemKeys } from "./keys";
 import { useTransferStore } from "@/stores/fileStores";
+import { hardDeleteBatchItems } from "./api";
+import toast from "react-hot-toast";
 
 export function useAncestors(params: {
   spaceId?: string;
@@ -97,22 +99,54 @@ export function createFolderMutation() {
         name: params.name,
         parentId: params.parentId,
       }),
-  onMutate: async () => {
+    onMutate: async () => {
       // Broadly pause any in-flight items queries; we don't know folder sort/filter context here
       await qc.cancelQueries({ queryKey: itemKeys.all() });
       const prev = qc.getQueryData(itemKeys.all());
       return { prev };
     },
-  onError: (_err, _vars, ctx) => {
+    onError: (_err, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(itemKeys.all(), ctx.prev);
     },
-  onSuccess: () => {
+    onSuccess: () => {
       // Close modal via store
       useTransferStore.getState().closeNewFolder();
     },
-  onSettled: () => {
+    onSettled: () => {
       // Invalidate all items queries so folder listings refresh
       qc.invalidateQueries({ queryKey: itemKeys.all() });
     },
   });
+}
+
+export function useHardDeleteBatchItems() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({
+      spaceId,
+      itemIds,
+    }: {
+      spaceId: string;
+      itemIds: string[];
+    }) => hardDeleteBatchItems({ spaceId, itemIds }),
+
+    onSuccess: (data) => {
+      if (data.status == 200) {
+        toast.success(`Successfully deleted item.`);
+      } else {
+        toast.error(`Failed to delet item.`);
+      }
+      queryClient.invalidateQueries({ queryKey: itemKeys.all() });
+    },
+
+    onError: () => {
+      toast.error("Failed to delete item");
+    },
+  });
+
+  return {
+    deleteItems: mutation.mutate,
+    isDeleting: mutation.isPending,
+  };
 }
