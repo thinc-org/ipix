@@ -11,8 +11,12 @@ import {
 } from "../../utils/queryHelper";
 import { citextConfig } from "@repo/rdb/types";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3, s3Bucket, expiresIn } from "@repo/s3";
+import {
+  fileAsset,
+  item,
+} from "../../../../../packages/rdb/src/schemas/storage";
 
 const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
@@ -109,10 +113,8 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           })();
 
           const withCount = {
-            ...(item),
-            childCount: childCountRow
-              ? Number((childCountRow).count)
-              : 0,
+            ...item,
+            childCount: childCountRow ? Number(childCountRow.count) : 0,
           };
           return { success: true, data: { item: withCount } };
         }
@@ -342,7 +344,14 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           .map((it) => it.id);
 
         // If any of the fetched items are files, convert BigInt size to string
-        type ItemDTO = Omit<typeof storageSchema.item.$inferSelect, "sizeByte"> & {childCount?: number, sizeByte: string | null, previewUrl?: string | null };
+        type ItemDTO = Omit<
+          typeof storageSchema.item.$inferSelect,
+          "sizeByte"
+        > & {
+          childCount?: number;
+          sizeByte: string | null;
+          previewUrl?: string | null;
+        };
 
         const dto: ItemDTO[] = items.map<ItemDTO>((it) => ({
           ...it,
@@ -469,15 +478,9 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
               .where(
                 and(
                   // kind = 'preview'
-                  eq(
-                    storageSchema.fileBlobLocation.kind,
-                    "preview"
-                  ),
+                  eq(storageSchema.fileBlobLocation.kind, "preview"),
                   inArray(storageSchema.fileBlobLocation.itemId, itemIds),
-                  eq(
-                    storageSchema.fileBlobLocation.provider,
-                    "aws_s3"
-                  ),
+                  eq(storageSchema.fileBlobLocation.provider, "aws_s3"),
                   eq(
                     storageSchema.fileBlobLocation.bucket,
                     s3Bucket.toLowerCase()
@@ -570,5 +573,146 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
       params: t.Object({
         spaceId: t.String({ format: "uuid" }),
       }),
+    }
+  )
+  .post(
+    "/spaces/:spaceId/hard-delete-batch-items",
+    async ({ body, params, set, user }) => {
+      const { itemIds } = body;
+      const { spaceId } = params;
+
+      if (!spaceId || !Array.isArray(itemIds) || itemIds.length === 0) {
+        set.status = 400;
+        return {
+          error: "spaceId (in query) and non-empty itemIds are required",
+        };
+      }
+
+      const ctx = await loadAccessContext(db, user?.id ?? null, spaceId);
+      if (!ctx.isOwner) {
+        set.status = 403;
+        return {
+          error: "You do not have permission to delete files in this space.",
+        };
+      }
+
+      const items = await db
+        .select({
+          id: item.id,
+          spaceId: item.spaceId,
+          itemType: item.itemType,
+          name: item.name,
+          assetId: item.assetId,
+        })
+        .from(item)
+        .where(
+          and(
+            inArray(item.id, itemIds),
+            and(eq(item.spaceId, spaceId), eq(item.itemType, "file"))
+          )
+        );
+
+      if (items.length === 0) {
+        set.status = 404;
+        return { error: "No matching files found in this space." };
+      }
+
+      const fileBlobLocation = storageSchema.fileBlobLocation;
+      const blobRows = await db
+        .select({
+          itemId: fileBlobLocation.itemId,
+          objectKey: fileBlobLocation.objectKey,
+        })
+        .from(fileBlobLocation)
+        .where(inArray(fileBlobLocation.itemId, itemIds));
+
+      const blobsByItem = blobRows
+        .filter((blob) => blob.itemId !== null)
+        .reduce(
+          (acc, blob) => {
+            const itemId = blob.itemId!;
+            if (!acc[itemId]) {
+              acc[itemId] = [];
+            }
+            acc[itemId].push(blob);
+            return acc;
+          },
+          {} as Record<string, typeof blobRows>
+        );
+
+      const keysToDelete = blobRows
+        .filter((b) => b.objectKey)
+        .map((b) => ({ Key: b.objectKey }));
+
+      let s3Results: Array<{
+        itemId: string | null;
+        objectKey: string;
+        success: boolean;
+        error?: string;
+      }> = [];
+
+      if (keysToDelete.length) {
+        try {
+          const data = await s3.send(
+            new DeleteObjectsCommand({
+              Bucket: s3Bucket,
+              Delete: { Objects: keysToDelete, Quiet: false },
+            })
+          );
+
+          const deleted = new Set(data.Deleted?.map((d) => d.Key!));
+
+          const errors = new Map(
+            data.Errors?.map((e) => [e.Key!, e.Message!]) ?? []
+          );
+
+          s3Results = blobRows.map((b) => ({
+            itemId: b.itemId,
+            objectKey: b.objectKey,
+            success: deleted.has(b.objectKey),
+            error: errors.get(b.objectKey),
+          }));
+        } catch (err) {
+          s3Results = blobRows.map((b) => ({
+            itemId: b.itemId,
+            objectKey: b.objectKey,
+            success: false,
+            error: (err as Error).message,
+          }));
+        }
+      }
+
+      const itemsToDelete = itemIds.filter((id) => {
+        const itemBlobs = blobsByItem[id] || [];
+        const itemS3Results = s3Results.filter((r) => r.itemId === id);
+
+        return (
+          itemBlobs.length > 0 &&
+          itemS3Results.length === itemBlobs.length &&
+          itemS3Results.every((r) => r.success)
+        );
+      });
+
+      if (itemsToDelete.length > 0) {
+        await db.transaction(async (tx) => {
+          await tx
+            .delete(fileBlobLocation)
+            .where(inArray(fileBlobLocation.id, itemsToDelete));
+          await tx
+            .delete(fileAsset)
+            .where(inArray(fileAsset.id, itemsToDelete));
+          await tx.delete(item).where(inArray(item.id, itemsToDelete));
+        });
+      }
+      return {
+        deleted: itemsToDelete,
+        failed: s3Results.filter((r) => !r.success),
+      };
+    },
+    {
+      body: t.Object({
+        itemIds: t.Array(t.String({ format: "uuid" })),
+      }),
+      auth: { allowPublic: false },
     }
   );
