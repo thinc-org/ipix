@@ -81,7 +81,7 @@ const normalizeExt = (ext?: string | null) =>
 // Image handling helpers
 const isImageContentType = (ct?: string | null) =>
   !!ct &&
-  /^(image)\/(jpeg|jpg|png|webp|avif|gif|tiff|bmp|x-icon|svg\+xml)$/i.test(ct);
+  /^(image)\/(jpeg|jpg|png|webp|avif|gif|tiff|bmp|nef|x-icon|svg\+xml)$/i.test(ct);
 
 function detectOutputFormat(
   ext?: string | null,
