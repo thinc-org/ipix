@@ -37,7 +37,7 @@ const app = new Elysia()
         // "http://[::1]:3000",
         // "http://localhost:5173",
         // "http://localhost:5174",
-        `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}:80`,
+        `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}`,
       ],
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: true,

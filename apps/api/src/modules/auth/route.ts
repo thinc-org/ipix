@@ -46,8 +46,8 @@ export const auth = betterAuth({
       },
     },
   },
-  baseURL: `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}:80/auth`,
-  trustedOrigins: [`${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}:80`],
+  baseURL: `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}/auth`,
+  trustedOrigins: [`${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}`],
   advanced: {
     defaultCookieAttributes: {
       sameSite: "lax",
