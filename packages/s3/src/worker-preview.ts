@@ -75,11 +75,10 @@ export type PreviewJob = {
 };
 
 // Env
-const {
-  REDIS_URL = "redis://127.0.0.1:6379",
-  DATABASE_URL,
-  S3_BUCKET,
-} = process.env as Record<string, string | undefined>;
+const { REDIS_URL, DATABASE_URL, S3_BUCKET } = process.env as Record<
+  string,
+  string | undefined
+>;
 
 if (!DATABASE_URL) {
   throw new Error("DATABASE_URL is required for preview worker");
@@ -87,7 +86,7 @@ if (!DATABASE_URL) {
 
 // BullMQ workers use blocking Redis commands; ioredis must not retry requests.
 // See error: "BullMQ: Your redis options maxRetriesPerRequest must be null."
-const redis = new Redis(REDIS_URL, {
+const redis = new Redis(REDIS_URL!, {
   maxRetriesPerRequest: null,
 });
 export const PREVIEW_QUEUE_NAME = "preview.generate";

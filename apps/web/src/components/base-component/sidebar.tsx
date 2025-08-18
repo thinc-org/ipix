@@ -63,13 +63,15 @@ export function Sidebar({
                     <AvatarImage src={userInfo.imageProfile} />
                     <AvatarFallback>U</AvatarFallback>
                   </Avatar>
-                  <div className="max-sm:text-sm">
+                  <div className="text-xs">
                     {userInfo.email ?? (
                       <span className="inline-block h-4 w-28 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
                     )}
                   </div>
                 </div>
-                <SignOutButton />
+                <div className="absolute right-1 text-xs">
+                  <SignOutButton />
+                </div>
               </div>
 
               <nav className="space-y-2">

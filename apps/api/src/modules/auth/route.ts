@@ -6,7 +6,7 @@ import { createAuthMiddleware, openAPI } from "better-auth/plugins";
 import { createDb } from "../../drizzle/client.js";
 import { authSchema, storageSchema } from "@repo/rdb/schema";
 
-const db = createDb({databaseUrl: process.env.DATABASE_URL,})
+const db = createDb({ databaseUrl: process.env.DATABASE_URL });
 
 export const auth = betterAuth({
   databaseHooks: {
@@ -41,13 +41,13 @@ export const auth = betterAuth({
                 itemType: "folder",
               })
               .returning();
-          })
-        }
-      }
-    }
+          });
+        },
+      },
+    },
   },
-  baseURL: "http://localhost:3000/auth",
-  trustedOrigins: ["http://localhost:3000", "http://[::1]:3000"],
+  baseURL: `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}:80/auth`,
+  trustedOrigins: [`${process.env.ACCESS_CONTROL_ALLOW_ORIGIN!}:80`],
   advanced: {
     defaultCookieAttributes: {
       sameSite: "lax",
@@ -72,7 +72,7 @@ export const auth = betterAuth({
     {
       schema: authSchema,
       provider: "pg",
-      debugLogs: true
+      debugLogs: true,
     }
   ),
   emailAndPassword: {
@@ -83,7 +83,7 @@ export const auth = betterAuth({
       enabled: true,
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      redirectURI: "http://localhost:20257/api/auth/callback/google",
+      redirectURI: `${process.env.API_BASE_URL!}:20257/api/auth/callback/google`,
       accessType: "offline",
       prompt: "select_account",
     },
@@ -119,7 +119,7 @@ export const betterAuthMiddleware = new Elysia({ name: "better-auth" })
   .all("/api/auth/*", async (context: Context) => {
     if (["POST", "GET"].includes(context.request.method)) {
       const response = await auth.handler(context.request);
-  
+
       console.log(response);
       // If it's a redirect response, make sure to return it properly
       if (response && response.status >= 300 && response.status < 400) {

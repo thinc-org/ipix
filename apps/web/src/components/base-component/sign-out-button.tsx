@@ -25,11 +25,7 @@ export function SignOutButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-gray-500 max-sm:text-xs p-0"
-        >
+        <Button variant="ghost" size="sm" className="text-gray-500 text-xs p-0">
           Log Out
         </Button>
       </DialogTrigger>
