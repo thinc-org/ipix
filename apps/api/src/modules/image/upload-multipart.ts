@@ -1565,6 +1565,7 @@ export const uploadRouter = new Elysia({ prefix: "/v1" })
         spaceId: it.spaceId,
         itemId: it.id,
         assetId: assetRow.id,
+        sha256: shaBytes,
         variants: [
           { variant: "thumb", algoV: 1, ext: "webp", maxEdge: 360 },
           { variant: "web", algoV: 1, ext: "webp", maxEdge: 1080 },
