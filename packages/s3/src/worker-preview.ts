@@ -50,7 +50,7 @@ export type PreviewJob = {
 };
 
 // Env
-const { REDIS_URL, DATABASE_URL, S3_BUCKET } = process.env as Record<
+const { REDIS_URL, DATABASE_URL } = process.env as Record<
   string,
   string | undefined
 >;

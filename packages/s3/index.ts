@@ -10,8 +10,8 @@ const {
   FORCE_PATH_STYLE,
   ACCESS_CONTROL_ALLOW_ORIGIN,
   PRE_SIGNED_URL_EXPIRE_IN,
-  REDIS_URL, // in seconds
-} = Bun.env;
+  REDIS_URL,
+} = process.env;
 
 const requiredEnvVars = {
   S3_REGION,
@@ -22,7 +22,7 @@ const requiredEnvVars = {
   FORCE_PATH_STYLE,
   ACCESS_CONTROL_ALLOW_ORIGIN,
   PRE_SIGNED_URL_EXPIRE_IN,
-  REDIS_URL,
+  REDIS_URL: process.env.REDIS_URL,
 };
 
 for (const [key, value] of Object.entries(requiredEnvVars)) {
