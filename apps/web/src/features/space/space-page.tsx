@@ -33,6 +33,8 @@ export function SpacePage({
     folderId: spaceInfo.folderId,
   });
 
+  // itemsQuery.data?.data?.data?.ancestors?.map((a) => a.)
+
   return (
     <div className="min-h-screen bg-background relative">
       <Header />
@@ -47,6 +49,7 @@ export function SpacePage({
           isSelectable={isSelectable}
           selectedCount={selectedImageKeys.length}
           selectedImageKeys={selectedImageKeys}
+          itemsQuery={itemsQuery}
           spaceInfo={{
             spaceId: spaceInfo.spaceId,
             folderId: spaceInfo.folderId,

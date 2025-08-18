@@ -6,6 +6,14 @@ interface FileToolBarProps {
   isSelectable: boolean;
   selectedCount: number;
   selectedImageKeys: string[];
+  itemsQuery: {
+    isFetching: boolean;
+    isLoading: boolean;
+    isError: boolean;
+    isSuccess: boolean;
+    data?: any;
+    error?: unknown;
+  };
   spaceInfo: {
     spaceId: string;
     folderId: string;
@@ -19,6 +27,7 @@ export function FileToolBar({
   selectedCount,
   selectedImageKeys,
   spaceInfo,
+  itemsQuery,
   onCancel,
   onToggleSelect,
 }: FileToolBarProps) {
@@ -33,6 +42,9 @@ export function FileToolBar({
         />
       ) : (
         <>
+        <div className=" w-full justify-start">
+          {itemsQuery.isSuccess ? itemsQuery.data?.data?.data?.ancestors.map((a: any) => ' / ' + a.name) : null}
+        </div>
           <Button onClick={onToggleSelect}>Select</Button>
           <AddNewButton
             spaceId={spaceInfo.spaceId}
