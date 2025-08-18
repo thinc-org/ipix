@@ -1,3 +1,5 @@
+import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "@repo/rdb/schema";
 import { Queue, Worker, Job } from "bullmq";
 import Redis from "ioredis";
 import {
@@ -12,8 +14,30 @@ import { Client as PgClient } from "pg";
 import sharp from "sharp";
 import type { Readable } from "stream";
 import exifr from "exifr";
+import { eq } from "drizzle-orm";
 
 type ImageMetadata = sharp.Metadata;
+
+export interface DatabaseClientOptions {
+  databaseUrl?: string;
+  max?: number;
+}
+
+export type DatabaseInstance = NodePgDatabase<typeof schema>;
+
+export const createDb = (opts?: DatabaseClientOptions): DatabaseInstance => {
+  return drizzle({
+    logger: true,
+    schema,
+    casing: "snake_case",
+    connection: {
+      connectionString: process.env.DATABASE_URL!,
+      max: opts?.max,
+    },
+  });
+};
+
+const db = createDb({ databaseUrl: process.env.DATABASE_URL })
 
 // Job contract
 // Inputs:
@@ -43,6 +67,7 @@ export type PreviewJob = {
   spaceId: string;
   itemId: string;
   assetId: string;
+  sha256: Buffer<ArrayBuffer>
   sha24?: string;
   contentType?: string;
   sourceKey?: string;
@@ -277,7 +302,7 @@ async function copyOrPutPreview(
 export const previewWorker = new Worker<PreviewJob>(
   PREVIEW_QUEUE_NAME,
   async (job: Job<PreviewJob>) => {
-    const { spaceId, itemId, assetId } = job.data;
+    const { spaceId, itemId, assetId, sha256 } = job.data;
     const sha24 = job.data.sha24 ?? (await ensureSha24(assetId));
     const sourceKey = job.data.sourceKey ?? (await ensureCanonKey(assetId));
     let { buf: src, contentType } = await getSourceObjectBufferAndCt(sourceKey);
@@ -331,6 +356,9 @@ export const previewWorker = new Worker<PreviewJob>(
       gpdDop: null,
       gpsTimestamp: null,
     };
+    try {
+      await db.update(schema.storageSchema.fileAsset).set(imgMetadataInsertObj).where(eq(schema.storageSchema.fileAsset.sha256, sha256))
+    } catch { /* do nothing */ }
     /*     const updateFileAssetQuery = await pg.query<{
       id: string;
       object_key: string;
