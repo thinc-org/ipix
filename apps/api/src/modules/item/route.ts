@@ -4,6 +4,7 @@ import { createDb } from "../../drizzle/client";
 import { and, asc, desc, eq, isNull, sql, inArray, lte } from "drizzle-orm";
 import { storageSchema } from "@repo/rdb/schema";
 import {
+  getDescendantItemIds,
   loadAccessContext,
   MatchType,
   scopeItemRead,
@@ -622,26 +623,35 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         };
       }
 
-      const items = await db
+      const rawItems = await db
         .select({
           id: item.id,
           spaceId: item.spaceId,
           itemType: item.itemType,
-          name: item.name,
-          assetId: item.assetId,
         })
         .from(item)
         .where(
           and(
             inArray(item.id, itemIds),
-            and(eq(item.spaceId, spaceId), eq(item.itemType, "file"))
+            eq(item.spaceId, spaceId),
+            inArray(item.itemType, ["folder", "file"])
           )
         );
 
-      if (items.length === 0) {
-        set.status = 404;
-        return { error: "No matching files found in this space." };
-      }
+      const folderIds = rawItems
+        .filter((i) => i.itemType === "folder")
+        .map((i) => i.id);
+
+      const fileIds = rawItems
+        .filter((i) => i.itemType === "file")
+        .map((i) => i.id);
+
+      const descendantFileIds =
+        folderIds.length > 0
+          ? (await getDescendantItemIds(folderIds, spaceId)).map((i) => i.id)
+          : [];
+
+      const fileIdsToDelete = [...new Set([...fileIds, ...descendantFileIds])];
 
       const fileBlobLocation = storageSchema.fileBlobLocation;
       const blobRows = await db
@@ -650,21 +660,7 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           objectKey: fileBlobLocation.objectKey,
         })
         .from(fileBlobLocation)
-        .where(inArray(fileBlobLocation.itemId, itemIds));
-
-      const blobsByItem = blobRows
-        .filter((blob) => blob.itemId !== null)
-        .reduce(
-          (acc, blob) => {
-            const itemId = blob.itemId!;
-            if (!acc[itemId]) {
-              acc[itemId] = [];
-            }
-            acc[itemId].push(blob);
-            return acc;
-          },
-          {} as Record<string, typeof blobRows>
-        );
+        .where(inArray(fileBlobLocation.itemId, fileIdsToDelete));
 
       const keysToDelete = blobRows
         .filter((b) => b.objectKey)
@@ -687,7 +683,6 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
           );
 
           const deleted = new Set(data.Deleted?.map((d) => d.Key!));
-
           const errors = new Map(
             data.Errors?.map((e) => [e.Key!, e.Message!]) ?? []
           );
@@ -708,10 +703,21 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         }
       }
 
-      const itemsToDelete = itemIds.filter((id) => {
+      const blobsByItem = blobRows
+        .filter((b) => b.itemId !== null)
+        .reduce(
+          (acc, blob) => {
+            const itemId = blob.itemId!;
+            acc[itemId] ??= [];
+            acc[itemId].push(blob);
+            return acc;
+          },
+          {} as Record<string, typeof blobRows>
+        );
+
+      const imagesToDelete = fileIdsToDelete.filter((id) => {
         const itemBlobs = blobsByItem[id] || [];
         const itemS3Results = s3Results.filter((r) => r.itemId === id);
-
         return (
           itemBlobs.length > 0 &&
           itemS3Results.length === itemBlobs.length &&
@@ -719,19 +725,24 @@ export const itemRouter = new Elysia({ prefix: "/v1" })
         );
       });
 
-      if (itemsToDelete.length > 0) {
-        await db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
+        if (imagesToDelete.length) {
           await tx
             .delete(fileBlobLocation)
-            .where(inArray(fileBlobLocation.id, itemsToDelete));
+            .where(inArray(fileBlobLocation.itemId, imagesToDelete));
           await tx
             .delete(fileAsset)
-            .where(inArray(fileAsset.id, itemsToDelete));
-          await tx.delete(item).where(inArray(item.id, itemsToDelete));
-        });
-      }
+            .where(inArray(fileAsset.id, imagesToDelete));
+          await tx.delete(item).where(inArray(item.id, imagesToDelete));
+        }
+
+        if (folderIds.length) {
+          await tx.delete(item).where(inArray(item.id, folderIds));
+        }
+      });
+
       return {
-        deleted: itemsToDelete,
+        deleted: [...imagesToDelete, ...folderIds],
         failed: s3Results.filter((r) => !r.success),
       };
     },

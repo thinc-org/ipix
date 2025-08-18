@@ -20,7 +20,7 @@ export function SelectionBar({
   const { deleteItems } = useHardDeleteBatchItems();
 
   return (
-    <div className="w-full flex justify-between items-center bg-muted py-2 rounded-md shadow-sm">
+    <div className="w-full flex justify-between items-center bg-muted rounded-md shadow-sm">
       <div className="flex items-center gap-2 text-sm ">
         <Button variant="ghost" onClick={onCancel}>
           <X className="w-4 h-4" />

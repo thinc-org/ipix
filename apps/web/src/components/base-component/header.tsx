@@ -40,7 +40,7 @@ export function Header() {
         </a>
 
         <div className="flex items-center space-x-4">
-          <button
+          {/* <button
             onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors"
             aria-label="Toggle theme"
@@ -50,9 +50,9 @@ export function Header() {
             ) : (
               <Moon className="h-5 sm:h-8 w-5 sm:w-8 text-gray-600" />
             )}
-          </button>
+          </button> */}
 
-          <UserCircle className="h-5 sm:h-8 w-5 sm:w-8 transition-colors cursor-pointer" />
+          {/* <UserCircle className="h-5 sm:h-8 w-5 sm:w-8 transition-colors cursor-pointer" /> */}
         </div>
       </div>
     </header>

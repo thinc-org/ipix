@@ -1,15 +1,23 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { RenameFolderButton } from "./rename-folder-button";
-import { DeleteFolderButton } from "./";
+import { DeleteFolderButton } from "./delete-folder-button";
 import { Link } from "@tanstack/react-router";
 import { useOnClickOutside } from "usehooks-ts";
 import type { FolderType } from "@/utils/types/folder";
 
 type FolderProps = {
   folder: FolderType;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggle?: () => void;
 };
 
-export function Folder({ folder }: FolderProps) {
+export function Folder({
+  folder,
+  selectable = false,
+  selected = false,
+  onToggle,
+}: FolderProps) {
   const [menuVisible, setMenuVisible] = useState(false);
   const folderRef = useRef<HTMLDivElement>(null);
 
@@ -31,10 +39,26 @@ export function Folder({ folder }: FolderProps) {
   return (
     <div
       ref={folderRef}
-      className="w-[184px] relative"
+      className={`w-[184px] relative rounded-md transition-colors ${
+        selected ? "bg-gray-100" : ""
+      }`}
       onContextMenu={handleContextMenu}
     >
-      <Link to={`/space/$spaceId/f/$folderId`} className="flex flex-col items-center p-2" params={{spaceId: folder.spaceId, folderId: folder.id}}>
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-2 right-4 z-20 h-5 w-5 accent-black"
+        />
+      )}
+
+      <Link
+        to="/space/$spaceId/f/$folderId"
+        className="flex flex-col items-center p-2"
+        params={{ spaceId: folder.spaceId, folderId: folder.id }}
+      >
         <img src="/image_folder_resource/folder.svg" aria-hidden="true" />
         <span className="text-center text-xs">{folder.name}</span>
         <span className="text-black/50 text-xs">

@@ -6,7 +6,7 @@ type ItemRow = typeof storageSchema.item.$inferSelect;
 type ItemWithChildCount = Omit<ItemRow, "sizeByte"> & {
   sizeByte: string | null;
   childCount?: number;
-  previewUrl?: string | null
+  previewUrl?: string | null;
 };
 
 interface ImageGalleryProps {
@@ -65,6 +65,9 @@ export function ImageGallery({
                         parent: item.parentId,
                         imageCount: item.childCount ?? 0,
                       }}
+                      selectable={isSelectable}
+                      selected={selectedImageKeys.includes(item.id)}
+                      onToggle={() => onToggleCheckbox(item.id)}
                     />
                   );
                 if (item.itemType === "file")
