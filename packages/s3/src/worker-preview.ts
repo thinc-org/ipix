@@ -81,7 +81,9 @@ const normalizeExt = (ext?: string | null) =>
 // Image handling helpers
 const isImageContentType = (ct?: string | null) =>
   !!ct &&
-  /^(image)\/(jpeg|jpg|png|webp|avif|gif|tiff|bmp|nef|x-icon|svg\+xml)$/i.test(ct);
+  /^(image)\/(jpeg|jpg|png|webp|avif|gif|tiff|bmp|nef|x-icon|svg\+xml)$/i.test(
+    ct
+  );
 
 function detectOutputFormat(
   ext?: string | null,
@@ -279,27 +281,30 @@ export const previewWorker = new Worker<PreviewJob>(
     const sha24 = job.data.sha24 ?? (await ensureSha24(assetId));
     const sourceKey = job.data.sourceKey ?? (await ensureCanonKey(assetId));
     let { buf: src, contentType } = await getSourceObjectBufferAndCt(sourceKey);
-    const thumbnailImg = await exifr.thumbnail(src)
+    const thumbnailImg = await exifr.thumbnail(src);
     console.log(thumbnailImg);
     if (thumbnailImg !== undefined) {
       if (thumbnailImg instanceof Uint8Array) {
-        src = Buffer.from(thumbnailImg)
+        src = Buffer.from(thumbnailImg);
       } else {
-        src = thumbnailImg
+        src = thumbnailImg;
       }
     }
     const imgMetadata = await exifr.parse(src, true);
     console.log(imgMetadata);
-    const takenAt = new Date(imgMetadata.DateTimeOriginal) ?? null;
-    const geographicObj =
-      imgMetadata.longitude && imgMetadata.latitude
-        ? { lon: imgMetadata.longitude, lat: imgMetadata.latitude }
-        : null;
+    let takenAt;
+    if (imgMetadata.DateTimeOriginal) {
+      takenAt = new Date(imgMetadata.DateTimeOriginal);
+    }
+    let geographicObj;
+    if (imgMetadata.longitude && imgMetadata.latitude) {
+      geographicObj = { lon: imgMetadata.longitude, lat: imgMetadata.latitude };
+    }
     const imgMetadataInsertObj = {
       exif: imgMetadata ?? null,
       takenAt: takenAt,
       takenLocal: imgMetadata.OffsetTime ?? null,
-      takenOffsetMin: takenAt.getTimezoneOffset() ?? null,
+      takenOffsetMin: takenAt ? takenAt.getTimezoneOffset() : null,
       takenSubsec: Number(imgMetadata.SubSecTimeOriginal),
       cameraMake: imgMetadata.Make ?? null,
       cameraModel: imgMetadata.Model,
