@@ -9,7 +9,8 @@ const {
   SECRET_ACCESS_KEY,
   FORCE_PATH_STYLE,
   ACCESS_CONTROL_ALLOW_ORIGIN,
-  PRE_SIGNED_URL_EXPIRE_IN, // in seconds
+  PRE_SIGNED_URL_EXPIRE_IN,
+  REDIS_URL, // in seconds
 } = Bun.env;
 
 const requiredEnvVars = {
@@ -21,6 +22,7 @@ const requiredEnvVars = {
   FORCE_PATH_STYLE,
   ACCESS_CONTROL_ALLOW_ORIGIN,
   PRE_SIGNED_URL_EXPIRE_IN,
+  REDIS_URL,
 };
 
 for (const [key, value] of Object.entries(requiredEnvVars)) {
@@ -61,9 +63,9 @@ function createSTSClient(): STSClient {
 
 export const accessControlAllowOrigin = ACCESS_CONTROL_ALLOW_ORIGIN as string;
 export const expiresIn = Number(PRE_SIGNED_URL_EXPIRE_IN);
-export const s3Bucket = S3_BUCKET as string
-export const s3Region = S3_REGION as string
-export const s3Endpoint = S3_ENDPOINT as string
+export const s3Bucket = S3_BUCKET as string;
+export const s3Region = S3_REGION as string;
+export const s3Endpoint = S3_ENDPOINT as string;
 
 export const s3 = createS3Client();
 export const sts = createSTSClient();
