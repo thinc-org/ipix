@@ -83,7 +83,7 @@ export const auth = betterAuth({
       enabled: true,
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      redirectURI: `${process.env.API_BASE_URL!}:20257/api/auth/callback/google`,
+      redirectURI: `${process.env.API_BASE_URL!}/api/auth/callback/google`,
       accessType: "offline",
       prompt: "select_account",
     },
